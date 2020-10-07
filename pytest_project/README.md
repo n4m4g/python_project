@@ -7,8 +7,8 @@
    e.g., 'test_my_add' for test function 'my_add'
 
 4. Test method
-
+   ```
    $ py.test -v
    $ pytest [test_file_name] -v # pytest test_func.py -v
    $ pytest [test_file_name]::[test_func_name] -v # pytest test_func.py::test_my_add -v
-
+   ```
