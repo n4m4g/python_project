@@ -32,12 +32,12 @@ async def get_chapter_url(url):
     return chapters
 
 class ImgDownloader():
-    def __init__(self, url, max_req=10):
+    def __init__(self, url, semaphore):
         self.chapter_url = url
         self.chapter_url_prefix = "https://hanascan.com/"
         self.root = "imgs"
         self.img_urls = []
-        self.semaphore = asyncio.Semaphore(max_req)
+        self.semaphore = semaphore
 
     async def download(self):
         is_exists = await self.make_directory()
@@ -76,7 +76,7 @@ class ImgDownloader():
             img_path = os.path.join(self.manga_path, img_name)
             async with aiofiles.open(img_path, 'wb') as f:
                 await f.write(content)
-            # print(f"{img_path}, done...")
+            print(f"{img_path}, done...")
 
 
 async def run(url):
@@ -86,8 +86,9 @@ async def run(url):
     chapters = await get_chapter_url(url)
 
     tasks = []
+    semaphore = asyncio.Semaphore(10)
     for chapter in chapters:
-        img_d = ImgDownloader(chapter)
+        img_d = ImgDownloader(chapter, semaphore)
         tasks.append(img_d.download())
 
     await asyncio.gather(*tasks)
@@ -100,5 +101,5 @@ def main(url):
         loop.close()
 
 if __name__ == "__main__":
-    url = "https://hanascan.com/manga-tensei-shitara-dai-nana-ouji-dattanode-kimamani-majutsu-o-kiwamemasu-raw.html"
+    url = "https://hanascan.com/manga-kaifuku-jutsushi-no-yarinaoshi-raw.html"
     main(url)
