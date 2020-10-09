@@ -1,0 +1,6 @@
+aiohttp
+aiofiles
+asyncio
+lxml
+requests
+BeautifulSoup4
