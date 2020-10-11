@@ -14,6 +14,11 @@ headers = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
 }
 
+support_webs = {
+    "hanascan": "https://hanascan.com/",
+    "manhuagui": "https://www.manhuagui.com/",
+    }
+
 async def get_url_data(url, req_type='text'):
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get(url) as resp:
@@ -24,20 +29,33 @@ async def get_url_data(url, req_type='text'):
                     content = await resp.text()
                 return content
 
-async def get_chapter_url(url):
+async def get_chapter_url(web, url):
     content = await get_url_data(url)
     soup = BeautifulSoup(content, 'lxml')
-    chapters = soup.find("div", attrs={"class": "list-wrap"}).find_all("a")
+    
+    if web == "hanascan":
+        chapters = soup.find("div", attrs={"class": "list-wrap"}).find_all("a")
+    elif web == "manhuagui":
+        pass
     chapters = [chapter['href'] for chapter in chapters][::-1]
     return chapters
 
+async def get_website_name(chapter_url):
+    not_support = True
+    for web, web_url in support_webs.items():
+        if chapter_url.startswith(web_url):
+            return web
+    if not_support:
+        assert False, f"\n\twebsite: {chapter_url} is not in support webs!!"
+
 class ImgDownloader():
-    def __init__(self, url, semaphore):
+    def __init__(self, web, url, semaphore):
         self.chapter_url = url
-        self.chapter_url_prefix = "https://hanascan.com/"
         self.root = "imgs"
         self.img_urls = []
+        self.manga_path = None
         self.semaphore = semaphore
+        self.web = web
 
     async def download(self):
         is_exists = await self.make_directory()
@@ -50,9 +68,13 @@ class ImgDownloader():
                 tasks.append(self.download_imgs(idx, img_url))
             await asyncio.gather(*tasks)
 
+
     async def make_directory(self):
         is_exists = False
-        manga_name = re.match("read-(.*)\.html", self.chapter_url)
+        if self.web == "hanascan":
+            manga_name = re.match("read-(.*)\.html", self.chapter_url)
+        elif self.web == "manhuagui":
+            pass
         self.manga_path = os.path.join(self.root, manga_name.group(1))
         if not os.path.exists(self.manga_path):
             os.makedirs(self.manga_path)
@@ -61,10 +83,13 @@ class ImgDownloader():
         return is_exists
 
     async def collect_img_url(self):
-        url = self.chapter_url_prefix+self.chapter_url
+        url = support_webs[self.web]+self.chapter_url
         content = await get_url_data(url)
         soup = BeautifulSoup(content, 'lxml')
-        imgs = soup.find("article", attrs={"id": "content"}).find_all("img")
+        if self.web == "hanascan":
+            imgs = soup.find("article", attrs={"id": "content"}).find_all("img")
+        elif self.web == "manhuagui":
+            pass
         self.img_urls = [img["src"] for img in imgs]
 
     async def download_imgs(self, idx, url):
@@ -78,17 +103,22 @@ class ImgDownloader():
                 await f.write(content)
             print(f"{img_path}, done...")
 
+class WebDownloaderHandler():
+    def __init__():
+        pass
+
 
 async def run(url):
     if not os.path.exists('./imgs'):
         os.makedirs('./imgs')
 
-    chapters = await get_chapter_url(url)
+    web = await get_website_name(url)
+    chapters = await get_chapter_url(web, url)
 
     tasks = []
-    semaphore = asyncio.Semaphore(10)
+    semaphore = asyncio.Semaphore(20)
     for chapter in chapters:
-        img_d = ImgDownloader(chapter, semaphore)
+        img_d = ImgDownloader(web, chapter, semaphore)
         tasks.append(img_d.download())
 
     await asyncio.gather(*tasks)
@@ -101,5 +131,5 @@ def main(url):
         loop.close()
 
 if __name__ == "__main__":
-    url = "https://hanascan.com/manga-kaifuku-jutsushi-no-yarinaoshi-raw.html"
+    url = "https://hanacan.com/manga-ayakashi-triangle-raw.html"
     main(url)
