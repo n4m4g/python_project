@@ -18,6 +18,9 @@ class ImgDownloader():
             "hanascan": "https://hanascan.com/",
             "manhuagui": "https://www.manhuagui.com/",
             }
+        self.headers = {
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
+        }
 
     def create_dir(self, path):
         has_exists = False
@@ -28,11 +31,8 @@ class ImgDownloader():
         return has_exists
 
     async def get_url_data(self, url, req_type='text'):
-        headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
-        }
         async with self.semaphore:
-            async with aiohttp.ClientSession(headers=headers) as session:
+            async with aiohttp.ClientSession(headers=self.headers) as session:
                 async with session.get(url) as resp:
                     if resp.status == 200:
                         if req_type == 'bytes':
@@ -167,31 +167,34 @@ class WebDownloaderHandler():
         return None
 
 
-async def run(url):
+async def run(urls):
     if not os.path.exists('imgs'):
         os.makedirs('imgs')
 
     semaphore = asyncio.Semaphore(15)
-    handler = WebDownloaderHandler(url, semaphore)
-    downloader = handler.get_downloader()
-    await downloader.download()
-    # tasks = [downloader.download()]
-    # await asyncio.gather(*tasks)
 
-    # web = await get_website_name(url)
-    # chapters = await get_chapter_url(web, url)
+    for url in urls:
+        handler = WebDownloaderHandler(url, semaphore)
+        downloader = handler.get_downloader()
+        await downloader.download()
 
-    # tasks = []
-    # for chapter in chapters:
-    #     img_d = ImgDownloader(web, chapter, semaphore)
-    #     tasks.append(img_d.download())
-
-    # await asyncio.gather(*tasks)
-
-def main(url):
+def main(urls):
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run(url))
+    loop.run_until_complete(run(urls))
 
 if __name__ == "__main__":
-    url = "https://hanascan.com/manga-parallel-paradise-raw.html"
-    main(url)
+    urls = [
+        "https://hanascan.com/manga-ayakashi-triangle-raw.html",
+        "https://hanascan.com/manga-fukushuu-o-koinegau-saikyou-yuusha-wa-yami-no-chikara-de-senmetsu-musou-suru-raw.html",
+        "https://hanascan.com/manga-izure-saikyo-no-renkinjutsu-shi-raw.html",
+        "https://hanascan.com/manga-kaifuku-jutsushi-no-yarinaoshi-raw.html",
+        "https://hanascan.com/manga-lottery-grand-prize-musou-harem-rights-raw.html",
+        "https://hanascan.com/manga-parallel-paradise-raw.html",
+        "https://hanascan.com/manga-queens-quality-raw.html",
+        "https://hanascan.com/manga-tensei-shitara-dai-nana-ouji-dattanode-kimamani-majutsu-o-kiwamemasu-raw.html",
+        "https://hanascan.com/manga-the-reincarnation-magician-of-the-inferior-eyes-raw.html",
+        "https://hanascan.com/manga-tsugumomo-raw.html",
+        "https://hanascan.com/manga-dokyuu-hentai-hxeros-raw.html",
+    ]
+
+    main(urls)
