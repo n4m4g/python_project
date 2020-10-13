@@ -19,17 +19,7 @@ class ImgDownloader():
             "manhuagui": "https://www.manhuagui.com/",
             }
 
-    async def get_manga_name(self):
-        raiseNotImplementedError("get_manga_name not implemented!")
-
-    async def get_chapter_name(self):
-        raiseNotImplementedError("get_chapter_name not implemented!")
-
-    async def get_chapter_url(self, url):
-        raiseNotImplementedError("get_chapter_url not implemented!")
-
-    @staticmethod
-    def create_dir(path):
+    def create_dir(self, path):
         has_exists = False
         if not os.path.exists(path):
             os.makedirs(path)
@@ -37,30 +27,37 @@ class ImgDownloader():
             has_exists = True
         return has_exists
 
-    @staticmethod
-    async def get_url_data(url, req_type='text'):
+    async def get_url_data(self, url, req_type='text'):
         headers = {
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
         }
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    if req_type == 'bytes':
-                        content = await resp.read()
-                    else:
-                        content = await resp.text()
-                    return content
+        async with self.semaphore:
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        if req_type == 'bytes':
+                            content = await resp.read()
+                        else:
+                            content = await resp.text()
+                        return content
 
     async def download_img(self, chapter_path, idx, url):
-        async with self.semaphore:
-            await asyncio.sleep(0.1)
-            content = await self.get_url_data(url, req_type='bytes')
-            img_ext = re.match(".*\.([a-z]+)", url).group(1)
-            img_name = f"{idx:03d}.{img_ext}"
-            img_path = os.path.join(chapter_path, img_name)
-            async with aiofiles.open(img_path, 'wb') as f:
-                await f.write(content)
-            print(f"{img_path}, done...")
+        img_ext = re.match(".*\.([a-z]+)", url).group(1)
+        img_name = f"{idx:03d}.{img_ext}"
+        img_path = os.path.join(chapter_path, img_name)
+        if not os.path.exists(img_path):
+            try:
+                content = await self.get_url_data(url, req_type='bytes')
+                async with aiofiles.open(img_path, 'wb') as f:
+                    await f.write(content)
+                print(f"{img_path}, done...")
+            except Exception as e:
+                print(f"img_path: {img_path}")
+                print(f"url: {url}")
+                print(f"Failed since {e}")
+        else:
+            # print(img_path, "is exists")
+            pass
 
 
 class HanascanDownloader(ImgDownloader):
@@ -75,16 +72,13 @@ class HanascanDownloader(ImgDownloader):
         results = await asyncio.gather(*tasks)
         self.manga_path, chapter_links = results[0]
 
-        tasks = [self.extract_img_links(chapter_link) for chapter_link in chapter_links[:11]]
+        tasks = [self.extract_img_links(chapter_link) for chapter_link in chapter_links]
         results = await asyncio.gather(*tasks)
 
         tasks = []
         for has_exists, chapter_path, img_links in results:
-            if not has_exists:
-                for idx, img_link in enumerate(img_links):
-                    tasks.append(self.download_img(chapter_path, idx, img_link))
-            else:
-                print(f"{chapter_path} is exists")
+            for idx, img_link in enumerate(img_links):
+                tasks.append(self.download_img(chapter_path, idx, img_link))
         await asyncio.gather(*tasks)
 
     async def extract_chapter_links(self, url):
@@ -196,11 +190,8 @@ async def run(url):
 
 def main(url):
     loop = asyncio.get_event_loop()
-    try:
-        loop.run_until_complete(run(url))
-    finally:
-        loop.close()
+    loop.run_until_complete(run(url))
 
 if __name__ == "__main__":
-    url = "https://hanascan.com/manga-tensei-shitara-dai-nana-ouji-dattanode-kimamani-majutsu-o-kiwamemasu-raw.html"
+    url = "https://hanascan.com/manga-parallel-paradise-raw.html"
     main(url)
