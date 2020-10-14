@@ -1,0 +1,10 @@
+#!/bin/bash
+
+find "./imgs" -type f -empty -exec ls {} \;
+
+read -p "Remove empty images above (y/n)? " choice
+case "$choice" in
+  y|Y ) find "./imgs" -type f -empty -exec rm {} \;;;
+  n|N ) echo "do nothing";;
+  * ) echo "invalid";;
+esac
