@@ -6,6 +6,7 @@
 import os
 import re
 import sys
+import time
 import asyncio
 import aiohttp
 import aiofiles
@@ -179,8 +180,10 @@ async def run(urls):
         await downloader.download()
 
 def main(urls):
+    t = time.time()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run(urls))
+    print(f"Took {round(time.time()-t, 2)}s...")
 
 if __name__ == "__main__":
     urls = [
