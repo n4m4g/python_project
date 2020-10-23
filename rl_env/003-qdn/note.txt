@@ -1,0 +1,19 @@
+What's dqn?
+	Using NN to replace q table.
+	E.g., task state as input,
+	output the q value respect to each action
+
+NN update mechanism
+	New NN = Old NN + alpha*(q target - q est)
+
+Important feature
+	Experience replay
+		A memory to store history experience.
+		Random select history experience to
+		break down correlation between experience
+	Fixed Q-targets
+		Two NN, one for q target, the other for q est.
+		To break down correlation between experience
+
+step1:
+	Build NN
