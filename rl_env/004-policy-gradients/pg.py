@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 class Net(nn.Module):
     def __init__(self, n_features, n_actions):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(n_features, 64)
+        self.fc1 = nn.Linear(n_features, 10)
         self.fc1.weight.data.normal_(0, 0.3)
         self.fc1.bias.data.fill_(0.1)
-        self.fc2 = nn.Linear(64, n_actions)
+        self.fc2 = nn.Linear(10, n_actions)
         self.fc2.weight.data.normal_(0, 0.3)
         self.fc2.bias.data.fill_(0.1)
 
@@ -98,7 +98,6 @@ def main():
     DISPLAY_REWARD_THRESHOLD = -110
     env = gym.make('MountainCar-v0')
     env = env.unwrapped
-    env.seed(1)
 
     print(env.action_space)
     print(env.observation_space)
@@ -115,15 +114,28 @@ def main():
 
     episodes = 3000
     total_reward = [0]*episodes
+    real_reward = [0]*episodes
     for episode in range(episodes):
         s = env.reset()
         while True:
             # if RENDER:
-            #     env.render()
+                # env.render()
             env.render()
 
             a = agent.choose_action(s)
             s_, r, done, info = env.step(a)
+            real_reward[episode] += r
+
+            position, velocity = s_
+            print(s_)
+
+            position_r = abs(position+0.5)
+            if (velocity<0.0 and a==0) or (velocity>=0.0 and a==2):
+                action_r = 1
+            else:
+                action_r = 0
+
+            r = position_r + action_r
             agent.store_transition(s, a, r)
 
             if done:
@@ -134,18 +146,18 @@ def main():
                     running_reward = running_reward*0.99+ep_rs_sum*0.01
 
                 total_reward[episode] = running_reward
-                if sum(total_reward)/(episode+1) > DISPLAY_REWARD_THRESHOLD:
+                if sum(real_reward)/(episode+1) > DISPLAY_REWARD_THRESHOLD:
                     RENDER = True
 
-                print(f"Episode: {episode}, reward: {running_reward}, avg reward = {sum(total_reward)/(episode+1):.2f}")
+                print(f"Episode: {episode}, reward: {running_reward}, avg reward = {sum(real_reward)/(episode+1):.2f}")
 
                 vt = agent.learn()
 
-                # if episode == 0:
-                #     plt.plot(vt)
-                #     plt.xlabel('episode steps')
-                #     plt.ylabel('normalized state-action value')
-                #     plt.show()
+                if episode == 30:
+                    plt.plot(vt)
+                    plt.xlabel('episode steps')
+                    plt.ylabel('normalized state-action value')
+                    plt.show()
                 break
             s = s_
                     
