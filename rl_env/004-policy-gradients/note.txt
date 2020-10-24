@@ -1,0 +1,10 @@
+What's policy gradient
+    Unlike Q learning select action from higher q value,
+    instead, policy gradient directly output action.
+
+    And also the action could be chose from continuous action space
+
+Update mechanism
+    Instead back propagation the loss,
+    increase/decrease the probability of chosen action using reward
+
