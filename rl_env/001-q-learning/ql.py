@@ -176,7 +176,8 @@ class RL(object):
         Use state to choose action in q_table
     """
 
-    def __init__(self, action_space: List[int], lr=0.01: float, reward_decay=0.9: float, e_greedy=0.9: float):
+    def __init__(self, action_space: List[int], lr: float = 0.01, 
+            reward_decay: float = 0.9, e_greedy: float = 0.9):
         """
         Parameters
         ----------
@@ -265,7 +266,8 @@ class QLearning(RL):
         
     """
    
-    def __init__(self, action_space: List[int], lr=0.01: float, reward_decay=0.9: float, e_greedy=0.9: float):
+    def __init__(self, action_space: List[int], lr: float = 0.01, 
+            reward_decay: float = 0.9, e_greedy: float = 0.9):
         super(QLearning, self).__init__(action_space, lr, reward_decay, e_greedy)
     
     def learn(self, s: str, a: str, r: int, s_: str):
