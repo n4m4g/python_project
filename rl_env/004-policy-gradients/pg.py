@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 class Net(nn.Module):
     def __init__(self, n_features, n_actions):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(n_features, 10)
+        self.fc1 = nn.Linear(n_features, 32)
         self.fc1.weight.data.normal_(0, 0.3)
         self.fc1.bias.data.fill_(0.1)
-        self.fc2 = nn.Linear(10, n_actions)
+        self.fc2 = nn.Linear(32, n_actions)
         self.fc2.weight.data.normal_(0, 0.3)
         self.fc2.bias.data.fill_(0.1)
 
@@ -97,6 +97,7 @@ def main():
     
     DISPLAY_REWARD_THRESHOLD = -110
     env = gym.make('MountainCar-v0')
+    env.seed(1)
     env = env.unwrapped
 
     print(env.action_space)
@@ -108,8 +109,8 @@ def main():
     agent = PolicyGradient(
             n_actions = env.action_space.n,
             n_features = env.observation_space.shape[0],
-            lr=0.02,
-            reward_decay=0.99
+            lr=0.001,
+            reward_decay=0.995
             )
 
     episodes = 3000
