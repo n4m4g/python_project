@@ -1,34 +1,46 @@
 2020/10/25
 ----------
 
-1. plt reward and step of 003-dqn
-2. 005-Actor-Critic
+    TODO
+    ----
+    1. plt reward and step of 003-dqn
+    2. 005-Actor-Critic
 
 2020/10/24
 ----------
 
-1. add type hint and docstrings to 001-ql
-2. 004-policy-gradients
-3. avg reward of 004-policy-gradients
+    DONE
+    ----
+    1. add type hint and docstrings to 001-ql
+    2. 004-policy-gradients
+    3. avg reward of 004-policy-gradients
 
 2020/10/23
 ----------
 
-1. 003-dqn
+    DONE
+    ----
+    1. 003-dqn
 
 2020/10/22
 ----------
 
-1. inherit from RL class, 001-ql and 002-sarsa
+    DONE
+    ----
+    1. inherit from RL class, 001-ql and 002-sarsa
 
 2020/10/20
 ----------
 
-1. 002-sarsa
-2. tk label and button
+    DONE
+    ----
+    1. 002-sarsa
+    2. tk label and button
 
 2020/10/19
 ----------
 
-1. 001-ql
+    DONE
+    ----
+    1. 001-ql
 
