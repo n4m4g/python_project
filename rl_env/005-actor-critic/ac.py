@@ -18,44 +18,49 @@ class Actor_Net(nn.Module):
         self.f2.weight.data.normal_(0.0, 0.1)
         self.f2.bias.data.fill_(0.1)
 
-        self.softmax = nn.Softmax(dim=1)
+        # self.softmax = nn.Softmax(dim=1)
 
     def forward(self, s):
         s = self.f1(s)
         s = self.relu(s)
         s = self.f2(s)
-        acts_prob = self.softmax(s)
-        return acts_prob
+        # acts_prob = self.softmax(s)
+        # return acts_prob
+        return s
 
 class Actor():
     def __init__(self, n_features, n_actions, lr=0.001):
         self.n_features = n_features
         self.net = Actor_Net(n_features, n_actions)
         self.optimizer = optim.Adam(self.net.parameters(), lr=lr)
+        self.criterion = nn.CrossEntropyLoss(reduction='none')
 
     def learn(self, s, a, td):
         s = torch.tensor(s, dtype=torch.float).unsqueeze(0)
         assert s.shape == torch.zeros((1, self.n_features)).shape
-        a = torch.tensor(a, dtype=torch.long)
+        a = torch.tensor([a], dtype=torch.long)
         td = td.clone().detach() 
         # td = torch.tensor(td, dtype=torch.float)
 
-        acts_prob = self.net(s)
-        log_prob = torch.log(acts_prob[0, a])
-        exp_v = -torch.mean(log_prob*td)
+        # acts_prob = self.net(s)
+        # log_prob = torch.log(acts_prob[0, a])
+        # exp_v = -torch.mean(log_prob*td)
+
+        neg_log_prob = self.criterion(self.net(s), a)
+        loss = torch.mean(neg_log_prob*td)
 
         self.optimizer.zero_grad()
-        exp_v.backward()
+        loss.backward()
         self.optimizer.step()
 
-        return -exp_v
 
     def choose_action(self, s):
         s = torch.tensor(s, dtype=torch.float).unsqueeze(0)
-        probs = self.net(s)
+        out = self.net(s)
+        probs = nn.Softmax(dim=1)(out)
         m = Categorical(probs)
         idx = m.sample().numpy()
-        a = np.arange(probs.shape[1])[idx][0]
+        a = np.arange(probs.shape[1])[idx[0]]
         return a
 
 class Critic_Net(nn.Module):
