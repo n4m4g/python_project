@@ -118,24 +118,24 @@ def main():
     for episode in range(episodes):
         s = env.reset()
         while True:
-            # if RENDER:
-                # env.render()
-            env.render()
+            if RENDER:
+                env.render()
+            # env.render()
 
             a = agent.choose_action(s)
             s_, r, done, info = env.step(a)
             real_reward[episode] += r
 
-            position, velocity = s_
-            print(s_)
+            # position, velocity = s_
+            # print(s_)
 
-            position_r = abs(position+0.5)
-            if (velocity<0.0 and a==0) or (velocity>=0.0 and a==2):
-                action_r = 1
-            else:
-                action_r = 0
+            # position_r = abs(position+0.5)
+            # if (velocity<0.0 and a==0) or (velocity>=0.0 and a==2):
+            #     action_r = 1
+            # else:
+            #     action_r = 0
 
-            r = position_r + action_r
+            # r = position_r + action_r
             agent.store_transition(s, a, r)
 
             if done:
