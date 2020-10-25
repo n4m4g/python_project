@@ -12,23 +12,46 @@ from torch.nn import functional as F
 
 from maze_env import Maze
 
+acc_reward = 0
+
 def update(RL, env):
+    global acc_reward
     step = 0
-    episodes = 200
+    episodes = 500
+    rewards = []
+    steps = []
     for episode in range(episodes):
         state = env.reset()
+        total_reward = 0
+        sub_step = 0
         while True:
             env.render()
             action = RL.choose_action(state)
             n_state, reward, done = env.step(action)
+            total_reward += reward
             RL.store_transition(state, action, reward, n_state)
             # accumulate some experience
             if step > 200 and (step+1)%5==0:
                 RL.learn()
             state = n_state
             if done:
+                print(f"episode[{episode+1:03d}/{episodes:03d}]: total reward = {total_reward:+.2f}, step = {sub_step}")
+                acc_reward += reward
+                rewards.append(acc_reward)
+                steps.append(sub_step)
                 break
             step += 1
+            sub_step += 1
+
+    plt.figure()
+    plt.subplot(211)
+    plt.plot(np.arange(len(rewards)), rewards)
+    plt.title('acc reward')
+    plt.subplot(212)
+    plt.plot(np.arange(len(steps)), steps)
+    plt.title('step')
+    plt.show()
+
     print('game over')
     env.destroy()
 
@@ -70,7 +93,7 @@ class DQN(object):
         state = torch.unsqueeze(torch.FloatTensor(state), 0)
         if np.random.uniform() < self.epsilon:
             action_values = self.est_net.forward(state)
-            # torch.max(tensor, dim) return max value and idx along dim
+            # torch.max(tensor, dim) return max value and idx of max value along dim
             # torch.max(tensor, dim)[1] get argmax
             # since only one state as input
             # [0] will get the idx of max value
@@ -80,6 +103,7 @@ class DQN(object):
         return action
 
     def store_transition(self, s, a, r, s_):
+        # Stack arrays in sequence horizontally (column wise).
         transition = np.hstack((s, a, r, s_))
         idx = self.memory_counter % self.memory_size
         self.memory[idx, :] = transition
@@ -90,6 +114,7 @@ class DQN(object):
             self.target_net.load_state_dict(self.est_net.state_dict())
         self.learn_step_counter += 1
 
+        # sample experience from memory
         sample_idx = np.random.choice(self.memory_size, self.batch_size)
         batch_memory = self.memory[sample_idx, :]
         batch_s = torch.FloatTensor(batch_memory[:, :self.n_state])
@@ -97,6 +122,10 @@ class DQN(object):
         batch_r = torch.FloatTensor(batch_memory[:, self.n_state+1:self.n_state+2])
         batch_s_ = torch.FloatTensor(batch_memory[:, -self.n_state:])
         
+        # >>> t = torch.tensor([[1,2],[3,4]])
+        # >>> torch.gather(t, 1, torch.tensor([[0,0],[1,0]]))
+        # tensor([[ 1,  1],
+        #         [ 4,  3]])
         q_est = self.est_net(batch_s).gather(1, batch_a)
         q_next = self.target_net(batch_s_).detach()
         q_target = batch_r + self.gamma*(q_next.max(dim=1)[0].view(self.batch_size, 1))
@@ -104,7 +133,7 @@ class DQN(object):
 
         self.optimizer.zero_grad()
         loss.backward()
-        print(loss.item())
+        # print(loss.item())
         self.losses.append(loss.item())
         self.optimizer.step()
 
