@@ -32,6 +32,7 @@ class Actor():
 
     def learn(self, s, a, td):
         s = torch.tensor(s, dtype=torch.float).unsqueeze(0)
+        assert s.shape == torch.zeros((1, n_features)).shape
         a = torch.tensor(a, dtype=torch.long)
         td = torch.tensor(td, dtype=torch.float)
 
@@ -42,11 +43,55 @@ class Actor():
         self.optimizer.zero_grad()
         exp_v.backward()
         self.optimizer.step()
-        
+
+        return -exp_v
 
     def choose_action(self, s):
         s = torch.tensor(s, dtype=torch.float).unsqueeze(0)
         probs = self.net(s)
         m = Categorical(probs)
-        idx = m.sample()
-        return np.arange(probs.shape[1])[idx]
+        idx = m.sample().numpy()
+        a = np.arange(probs.shape[1])[idx]
+        return a
+
+class Critic_Net(nn.Module):
+    def __init__(self, n_features):
+        super(Actor, self).__init__()
+        self.f1 = nn.Linear(n_features, 20)
+        self.f1.weight.data.normal_(0.0, 0.1)
+        self.f1.bias.data.fill_(0.1)
+
+        self.relu = nn.ReLU()
+
+        self.f2 = nn.Linear(20, 1)
+        self.f2.weight.data.normal_(0.0, 0.1)
+        self.f2.bias.data.fill_(0.1)
+
+    def forward(self, s):
+        s = self.f1(s)
+        s = self.relu(s)
+        s = self.f2(s)
+        return s
+
+class Critic():
+    def __init__(self, n_features, n_actions, lr=0.01):
+        self.net = Critic_Net(n_features)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=lr)
+
+    def learn(self, s, r, s_):
+        s = torch.tensor(s, dtype=torch.float).unsqueeze(0)
+        assert s.shape == torch.zeros((1, n_features)).shape
+        s_ = torch.tensor(s_, dtype=torch.float).unsqueeze(0)
+        assert s_.shape == torch.zeros((1, n_features)).shape
+        r = torch.tensor(r, dtype=torch.float)
+
+        v_ = self.net(s_)
+        td_err = r + GAMMA * v_ - self.net(s)
+        loss = torch.square(td_err)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        return td_err
+
