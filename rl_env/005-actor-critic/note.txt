@@ -1,8 +1,9 @@
 What's actor critic
     actor
-        pocily gradient
+        policy gradient
         udpate per episode
     critic
         value-base learning, e.g., qlearning
         update per step
 
+    faster converge than policy gradient
