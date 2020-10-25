@@ -1,0 +1,8 @@
+What's actor critic
+    actor
+        pocily gradient
+        udpate per episode
+    critic
+        value-base learning, e.g., qlearning
+        update per step
+
