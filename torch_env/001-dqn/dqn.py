@@ -1,3 +1,4 @@
+#!/home/chhuang/Desktop/python_project/venv/bin/python3
 import random
 import gym
 import numpy as np
@@ -38,7 +39,7 @@ class ReplayMemory:
         return number of data in memory
     """
 
-    def __init__(self, capacity, state_shape):
+    def __init__(self, capacity, state_shape, device):
         """
         Parameters
         ----------
@@ -59,10 +60,10 @@ class ReplayMemory:
         """
 
         self.capacity = capacity
-        self.s = torch.empty((self.capacity, *state_shape))
-        self.a = torch.empty((self.capacity, 1))
-        self.r = torch.empty((self.capacity, 1))
-        self.s_ = torch.empty((self.capacity, *state_shape))
+        self.s = torch.empty((self.capacity, *state_shape), device=device)
+        self.a = torch.empty((self.capacity, 1), dtype=torch.long, device=device)
+        self.r = torch.empty((self.capacity, 1), device=device)
+        self.s_ = torch.empty((self.capacity, *state_shape), device=device)
         self.save_idx = 0
         self.size_idx = 0
 
@@ -164,9 +165,9 @@ class DQN(nn.Module):
             model input
         """
 
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
+        x = nn.ReLU()(self.bn1(self.conv1(x)))
+        x = nn.ReLU()(self.bn2(self.conv2(x)))
+        x = nn.ReLU()(self.bn3(self.conv3(x)))
         return self.head(x.view(x.size(0), -1))
 
 def get_cart_location(screen_width):
@@ -228,11 +229,55 @@ def get_screen():
     screen = resize(screen).unsqueeze(0).to(device)
     return screen
 
+steps_done = 0
+def select_action(state):
+    global steps_done
+    sample = random.random()
+    eps_threshold = EPS_END + (EPS_START-EPS_END)*np.exp(-1*steps_done/EPS_DECAY)
+    steps_done += 1
+    if sample > eps_threshold:
+        with torch.no_grad():
+            return policy_net(state).max(dim=1)[1].view(1,1)
+    else:
+        return torch.tensor([[random.randrange(n_action)]],
+                            device=device,
+                            dtype=torch.long)
+
+def optimize_model():
+    if len(memory) < BATCH_SIZE:
+        return
+
+    s, a, r, s_ = memory.sample(BATCH_SIZE)
+    non_final_mask = torch.tensor(tuple(map(lambda s: not (s==torch.ones_like(s, device=device)).all(), s_)),
+                                  device=device,
+                                  dtype=torch.bool)
+    # non_final_next_states = torch.cat([s for s in s_ if not (s==torch.ones_like(s, device=device)).all()])
+    non_final_next_states = s_[non_final_mask]
+    s_batch = s
+    a_batch = a
+    r_batch = r
+    state_action_values = policy_net(s_batch).gather(1, a_batch)
+
+    next_state_values = torch.zeros(BATCH_SIZE, device=device)
+    next_state_values[non_final_mask] = target_net(non_final_next_states).max(dim=1)[0].detach()
+    expected_state_actoin_values = r_batch + GAMMA*(next_state_values.view(-1,1))
+
+    loss = nn.SmoothL1Loss()(state_action_values, expected_state_actoin_values)
+
+    optimizer.zero_grad()
+    loss.backward()
+
+    for p in policy_net.parameters():
+        p.grad.data.clamp_(-1, 1)
+
+    optimizer.step()
+    return loss.item()
+
 env = gym.make('CartPole-v0').unwrapped
 device = torch.device('cuda:0')
 
 env.reset()
-BATCH_SIZE = 128
+BATCH_SIZE = 512
 GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
@@ -240,7 +285,7 @@ EPS_DECAY = 200
 TARGET_UPDATE = 10
 
 init_screen = get_screen()
-_, _, h, w = init_screen.shape
+_, c, h, w = init_screen.shape
 
 n_action = env.action_space.n
 
@@ -250,4 +295,52 @@ target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(10000, (h, w))
+memory = ReplayMemory(10000, (c, h, w), device)
+
+episodes = 15
+
+for episode in range(episodes):
+    env.reset()
+
+    last_screen = get_screen()
+    current_screen = get_screen()
+    state = current_screen-last_screen
+
+    steps=0
+    total_loss=0
+
+    while True:
+        action = select_action(state)
+        _, reward, done, _ = env.step(action.item())
+        reward = torch.tensor([reward], device=device)
+
+        last_screen = current_screen
+        current_screen = get_screen()
+
+        if not done:
+            next_state = current_screen - last_screen
+        else:
+            next_state = torch.ones_like(next_state, device=device)
+
+        memory.push(state, action, reward, next_state)
+
+        state = next_state
+
+        loss = optimize_model()
+        if not loss == None:
+            total_loss += loss
+        steps += 1
+
+
+        if done:
+            break
+
+    print(f"episode[{episode:03d}/{episodes:03d}]: loss={total_loss/steps:.3f}")
+    if (episode+1) % TARGET_UPDATE == 0:
+        target_net.load_state_dict(policy_net.state_dict())
+
+print('Complete')
+env.render()
+env.close()
+
+
