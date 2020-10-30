@@ -2,3 +2,4 @@ __pycache__
 .ipynb_checkpoints
 aio_project/imgs
 venv
+data
