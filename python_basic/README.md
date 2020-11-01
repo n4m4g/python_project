@@ -5,6 +5,7 @@ Contents
 --------
 - [variable scope](#variable-scope)
 - [class attribute](#class-attribute)
+- [decorator](#decorator)
 
 variable scope
 --------------
@@ -71,8 +72,33 @@ instance attribute
 'John'
 >>> Student.name
 'Student'
->>> del s.name
+>>> del s.name # delete instance attribute
 >>> s.name
 'Student'
 >>>
+```
+
+decorator
+---------
+
+Add some feature to function without change it!!
+
+For instance, a timer decorator
+
+```
+from time import time
+from functools import wraps
+
+def log(func):
+    @wraps(func)
+    def wrapper(*args, **kw):
+        t = time()
+        result = func(*args, **kw)
+        print(f"{func.__name__}, {time()-t:.4f}")
+        return result
+    return wrapper
+
+@log
+def some_func():
+    # do something
 ```
