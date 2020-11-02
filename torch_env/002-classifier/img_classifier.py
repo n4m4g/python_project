@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torchvision
 from torch import nn, optim
-from torchvision import transforms
+from torchvision import transforms, models
 
 torch.backends.cudnn.benchmark = True
 
@@ -36,9 +36,15 @@ class Net(nn.Module):
     def forward(self, x):
         return self.net(x)
 
+
+
+
+# transform = transforms.Compose(
+#         [transforms.ToTensor(),
+#          transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
 transform = transforms.Compose(
         [transforms.ToTensor(),
-         transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))])
+         transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
 
 trainset = torchvision.datasets.CIFAR10('data',
                                         train=True,
@@ -68,10 +74,18 @@ classes = ('plane', 'car', 'bird', 'cat', 'deer',
 # print(images.shape, labels.shape)
 # print('--'.join('%s' % classes[labels[j]] for j in range(4)))
 # imshow(torchvision.utils.make_grid(images))
-print(len(trainloader))
+# print(len(trainloader))
 
 device = torch.device("cuda:0")
-net = Net().to(device)
+# net = Net().to(device)
+
+net = models.resnet18(pretrained=True)
+
+for param in net.parameters():
+    param.requires_grad=False
+
+net.fc = nn.Linear(net.fc.in_features, 10)
+net = net.to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
