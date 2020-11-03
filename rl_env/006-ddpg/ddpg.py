@@ -117,6 +117,19 @@ class DDPG:
         self.m_pointer += 1
 
 def main():
+    """
+    UnboundLocalError: local variable 'RENDER' referenced before assignment
+
+    If the global variable changed in a function without
+    declare with a "global" prefix, then the variable here
+    will be treat as a local variable
+
+    For example,
+    if "RENDER" is not been declared with global prefix, 
+    access "RENDER" variable will raise UnboundLocalError
+    before assign value to "RENDER"
+    """
+
     global RENDER
     env = gym.make(ENV_NAME)
     env = env.unwrapped
