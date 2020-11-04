@@ -80,7 +80,15 @@ class DDPG:
         br = torch.tensor(bm[:, -self.s_dim-1:-self.s_dim], dtype=torch.float32)
         bs_ = torch.tensor(bm[:, -self.s_dim:], dtype=torch.float32)
 
-        # update actor_eval
+        """
+        update actor_eval
+        -----------------
+        determine how good is the action
+        get action from actor_eval(s)
+        get q value from critic_eval(s, a)
+        to maximum q value => minimum -q value
+        -torch.mean(q)
+        """
         a = self.actor_eval(bs)
         q = self.critic_eval(bs, a)
         loss_a = -torch.mean(q)
@@ -88,7 +96,14 @@ class DDPG:
         loss_a.backward()
         self.optim_a.step()
 
-        # update critic_eval
+        """
+        update critic_eval
+        ------------------
+        TD(0) algorithm
+        get target v from target critic net
+        get eval v from eval critic net
+        MSE(target_v, eval_v)
+        """
         target_v = br + GAMMA * self.critic_target(bs_, self.actor_target(bs_))
         est_v = self.critic_eval(bs, ba)
         loss_c = self.loss_td(target_v, est_v)
@@ -97,6 +112,8 @@ class DDPG:
         self.optim_c.step()
         
     def soft_target_replacement(self):
+        """ replace parameters of target net with few parameters of eval net
+        """
         for x in self.actor_target.state_dict().keys():
             eval('self.actor_target.' + x + '.data.mul_(1-TAU)')
             eval('self.actor_target.' + x + '.data.add_(TAU*self.actor_eval.' + x + '.data)')
@@ -138,10 +155,12 @@ def main():
     s_dim = env.observation_space.shape[0]
     a_dim = env.action_space.shape[0]
     a_bound = env.action_space.high[0]
-    print(f"s_dim: {s_dim}, a_dim: {a_dim}, a_bound: {a_bound}")
+    # print(f"s_dim: {s_dim}, a_dim: {a_dim}, a_bound: {a_bound}")
+    # s_dim: 3, a_dim: 1, a_bound: 2.0
 
     ddpg = DDPG(s_dim, a_dim, a_bound)
     
+    # var: add noise to action
     var = 3
     for i in range(MAX_EPISODES):
         s = env.reset()
