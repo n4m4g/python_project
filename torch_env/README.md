@@ -4,6 +4,7 @@ pytorch basic
 Contents
 --------
 - [tensor](#tensor)
+- [openai baseline](#openai-baseline)
 
 tensor
 ------
@@ -46,3 +47,15 @@ torch.int64
 >>> e.dtype
 torch.float32
 ```
+
+openai baseline
+---------------
+
+### Installation
+
+    $ git clone --single-branch --branch tf2 https://github.com/openai/baselines.git
+    $ cd baseline
+    $ pip install -e .
+    $ pip install gym[atari]
+    $ pytest
+    
