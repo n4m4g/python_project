@@ -7,7 +7,7 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torch import multiprocessing as mp
 
-UPDATE_GLOBAL_ITER = mp.cpu_count()
+UPDATE_GLOBAL_ITER = (mp.cpu_count() + 1)//2
 GAMMA = 0.9
 MAX_EP = 3000
 MAX_EP_STEP = 200
@@ -107,6 +107,8 @@ class Worker(mp.Process):
             buf_s, buf_a, buf_r = [], [], []
             ep_r = 0
             for t in range(MAX_EP_STEP):
+                if self.name == '0':
+                    self.env.render()
                 a = self.lnet.choose_action(torch.tensor(s[None, :], dtype=torch.float32))
                 s_, r, done, _ = self.env.step(a.clip(-2, 2))
                 if t+1 == MAX_EP_STEP:
@@ -162,7 +164,7 @@ def record(global_ep, global_ep_r, ep_r, res_queue, name):
         global_ep_r.value = ep_r if global_ep_r.value == 0 else \
                 global_ep_r.value*0.99+ep_r*0.01
     res_queue.put(global_ep_r.value)
-    print(f"{name}, Ep: {global_ep.value}, Ep_r: {global_ep_r.value:.2f}")
+    print(f"{int(name):02d}, Ep: {global_ep.value}, Ep_r: {global_ep_r.value:.2f}")
 
 if __name__ == "__main__":
     gnet = Net(N_S, N_A)
