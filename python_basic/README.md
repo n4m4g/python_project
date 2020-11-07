@@ -7,6 +7,7 @@ Contents
 - [class attribute](#class-attribute)
 - [decorator](#decorator)
 - [shuffle array](#shuffle-array)
+- [itertools](#itertools)
 
 variable scope
 --------------
@@ -127,4 +128,23 @@ array([4, 2, 6, 0, 1, 9, 7, 8, 5, 3])
 array([5, 7, 3, 9, 8, 0, 2, 1, 4, 6])
 >>>
 
+```
+
+itertools
+---------
+
+### chain
+
+Return a chiain object 
+
+```
+from itertools import chain
+>>> a = [1, 2, 3]
+>>> b = [5, 4]
+>>> c = [a, b]
+>>> chain(*c)
+<itertools.chain object at 0x7f25522730a0>
+>>> list(chain(*c))
+[1, 2, 3, 5, 4]
+>>>
 ```
