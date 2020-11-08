@@ -7,11 +7,9 @@ import gym
 EP_MAX = 1000
 EP_LEN = 200
 GAMMA = 0.9
-A_LR = 0.0001
-C_LR = 0.0002
+LR = 0.002
 BATCH = 32
-A_UPDATE_STEPS = 10
-C_UPDATE_STEPS = 10
+UPDATE_STEPS = 4
 EPSILON=0.2
 
 """
@@ -32,76 +30,108 @@ EPSILON=0.2
 
 """
 
-class Critic_Net(nn.Module):
-    def __init__(self, s_dim):
-        super(Critic_Net, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(s_dim, 100),
-            nn.ReLU(),
-            nn.Linear(100, 1)
-            )
-    def forward(self, x):
-        return self.net(x)
-
-class Actor_Net(nn.Module):
+class ActorCritic(nn.Module):
     def __init__(self, s_dim, a_dim):
-        super(Actor_Net, self).__init__()
-        self.fc1 = nn.Linear(s_dim, 100)
-        self.relu = nn.ReLU()
+        super(ActorCritic, self).__init__()
+
+        # actor
+        self.fc1_a = nn.Linear(s_dim, 100)
         self.mu = nn.Linear(100, a_dim)
         self.sigma = nn.Linear(100, a_dim)
         self.softplus = nn.Softplus()
 
+        # critic
+        self.fc1_c = nn.Linear(s_dim, 100)
+        self.fc2_c = nn.Linear(100, 1)
+
+        self.relu = nn.ReLU6()
+        self.distribution = torch.distributions.Normal
+
+        self.set_init(self.fc1_a,
+                      self.mu,
+                      self.sigma,
+                      self.fc1_c,
+                      self.fc2_c)
+
+    def set_init(self, *layers):
+        for layer in layers:
+            layer.weight.data.normal_(0, 0.1)
+            layer.bias.data.fill_(0.)
+
     def forward(self, s):
-        a = self.fc1(s)
+        # actor
+        a = self.fc1_a(s)
         a = self.relu(a)
         mu = 2*torch.tanh(self.mu(a))
         sigma = self.softplus(self.sigma(a))
 
-        return mu, sigma
+        # critic
+        s = self.fc1_c(s)
+        s = self.relu(s)
+        v = self.fc2_c(s)
+        return mu, sigma, v
 
+    def choose_action(self, s):
+        self.eval()
+        mu, sigma, _ = self.forward(s)
+        m = self.distribution(mu.view(1), sigma.view(1))
+        a = m.sample()
+        logprob = m.log_prob(a)
+        return a.numpy(), logprob
+
+    def evaluate(self, s, a):
+        self.eval()
+        mu, sigma, _ = self.forward(s)
+        m = self.distribution(mu, sigma)
+        a_logprob = m.log_prob(a)
+        entropy = m.entropy()
+        _, _, v = self.forward(s)
+        return a_logprob, v.squeeze(), entropy
 
 
 class PPO:
     def __init__(self, s_dim, a_dim):
-        self.critic = Critic_Net(s_dim)
-        self.opt_c = optim.Adam(self.critic.parameters(), lr=C_LR)
-        self.criterion_c = nn.MSELoss()
+        self.policy = ActorCritic(s_dim, a_dim)
+        self.policy_old = ActorCritic(s_dim, a_dim)
+        self.policy_old.load_state_dict(self.policy.state_dict())
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=LR)
+        self.criterion = nn.MSELoss()
 
-        self.actor_eval = Actor_Net(s_dim, a_dim)
-        self.actor_target = Actor_Net(s_dim, a_dim)
-        self.actor_target.load_state_dict(self.actor_eval.state_dict())
-        self.opt_a = optim.Adam(self.actor_eval.parameters(), lr=A_LR)
+    def update(self, bs, ba, br, logprob):
+        self.policy.train()
+        Gt = torch.zeros_like(torch.tensor(br, dtype=torch.float32))
+        discounted_reward = 0
 
-        self.distribution = torch.distributions.Normal
+        for idx in reversed(range(len(br))):
+            discounted_reward = br[idx] + GAMMA * discounted_reward
+            Gt[idx] = discounted_reward
 
-    def choose_action(self, s):
-        self.actor_eval.eval()
-        mu, sigma = self.actor_eval(s)
-        m = self.distribution(mu.view(1,).data, sigma.view(1,).data)
-        a = m.sample().numpy().clip(-2, 2)
-        return a
+        Gt = (Gt-Gt.mean()) / (Gt.std()+1e-5)
 
-    def update(self, s, a, r):
-        self.actor_eval.train()
-        self.actor_target.load_state_dict(self.actor_eval.state_dict())
+        old_s = torch.tensor(bs, dtype=torch.float32).unsqueeze(0)
+        old_a = torch.tensor(a, dtype=torch.float32).unsqueeze(0)
+        old_log_prob = torch.tensor(logprob, dtype=torch.float32).unsqueeze(0)
 
-        adv = r - self.critic(s)
-        mu, sigma = self.actor_eval(s)
-        m_eval = self.distribution(mu, sigma)
-        mu, sigma = self.actor_target(s)
-        m_target = self.distribution(mu, sigma)
-        ratio = m_eval.log_prob(a) / (m_target.log_prob(a)+1e-5)
-        surr = ratio * adv
-        loss_a = -torch.mean(torch.minimum(surr, torch.clip(ratio, 1-EPSILON, 1+EPSILON)*adv))
-        self.opt_a.zero_grad()
-        loss_a.backward()
-        self.opt_a.step()
+        for _ in range(UPDATE_STEPS):
+            logprobs, v, entropy = self.policy.evaluate(old_s, old_a)
+            ratios = torch.exp(logprobs-old_log_prob)
 
-        loss_c = self.criterion_c(r, self.critic(s))
-        self.opt_c.zero_grad()
-        loss_c.backward()
-        self.opt_c.step()
+            advantages = Gt-v.detach()
+            surrogate1 = ratios*advantages
+            surrogate2 = torch.clamp(ratios, 1-EPSILON, 1+EPSILON)*advantages
+            loss = -torch.min(surrogate1, surrogate2) + 0.5*self.criterion(v, Gt)-0.01*entropy
+            print(loss)
+            print(loss.shape)
+            print(torch.min(surrogate1, surrogate2).shape)
+            print(self.criterion(v, Gt), self.criterion(v, Gt).shape)
+            print(entropy.shape)
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+        self.policy_old.load_state_dict(self.policy.state_dict())
+
 
 if __name__ == "__main__":
     env = gym.make('Pendulum-v0').unwrapped
@@ -113,29 +143,31 @@ if __name__ == "__main__":
 
     for ep in range(EP_MAX):
         s = env.reset()
-        buf_s, buf_a, buf_r = [], [], []
+        buf_s, buf_a, buf_r, buf_logprob = [], [], [], []
         ep_r = 0
         for t in range(EP_LEN):
-            a = ppo.choose_action(torch.tensor(s[None, :], dtype=torch.float32))
+            a, logprob = ppo.policy_old.choose_action(torch.tensor(s[None, :], dtype=torch.float32))
             s_, r, done, _ = env.step(a)
             buf_s.append(s)
             buf_a.append(a)
             buf_r.append((r+8)/8)
+            buf_logprob.append(logprob)
 
             s = s_
             ep_r += r
 
             if (t+1)%BATCH==0 or t==EP_LEN-1:
-                v_s_ = ppo.critic(torch.tensor(s_[None,:], dtype=torch.float32)).data.numpy()[0,0]
-                discounted_r = torch.zeros_like(torch.tensor(buf_r, dtype=torch.float32))
-                for idx in reversed(range(len(buf_r))):
-                    v_s_ = buf_r[idx] + GAMMA * v_s_
-                    discounted_r[idx] = v_s_
+                ppo.update(buf_s, buf_a, buf_r, buf_logprob)
+                # v_s_ = ppo.critic(torch.tensor(s_[None,:], dtype=torch.float32)).data.numpy()[0,0]
+                # discounted_r = torch.zeros_like(torch.tensor(buf_r, dtype=torch.float32))
+                # for idx in reversed(range(len(buf_r))):
+                #     v_s_ = buf_r[idx] + GAMMA * v_s_
+                #     discounted_r[idx] = v_s_
 
-                ppo.update(torch.tensor(np.vstack(buf_s), dtype=torch.float32),
-                           torch.tensor(np.vstack(buf_a), dtype=torch.float32),
-                           discounted_r[:, None].clone().detach())
-                buf_s, buf_a, buf_r = [], [], []
+                # ppo.update(torch.tensor(np.vstack(buf_s), dtype=torch.float32),
+                #            torch.tensor(np.vstack(buf_a), dtype=torch.float32),
+                #            discounted_r[:, None].clone().detach())
+                buf_s, buf_a, buf_r, buf_logprob = [], [], [], []
 
         if ep==0:
             all_ep_r.append(ep_r)
