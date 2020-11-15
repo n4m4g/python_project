@@ -3,11 +3,72 @@ python basic
 
 Contents
 --------
+- [pack unpack](#pack-unpack)
 - [variable scope](#variable-scope)
 - [class attribute](#class-attribute)
 - [decorator](#decorator)
 - [shuffle array](#shuffle-array)
 - [itertools](#itertools)
+
+
+pack unpack
+-----------
+
+If we simply pass list to the function, the call doesn’t work.  
+
+```
+>>> def foo(a, b, c):
+...   return a+b+c
+...
+>>> nums = [1, 2, 3]
+>>> foo(nums)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: foo() missing 2 required positional arguments: 'b' and 'c'
+>>>
+```
+
+### unpack
+
+Use * to unpack the list so that all elements of it can be passed as different parameters.  
+In other words, **list -> e1, e2, ...**
+
+```
+>>> def foo(a, b, c):
+...   return a+b+c
+...
+>>> nums = [1, 2, 3]
+>>> foo(*nums)
+6
+```
+
+### pack
+
+Don’t know how many arguments need to be passed to a python function.   
+We can use Packing to pack all arguments in a tuple.  
+In other words, **e1, e2, ... -> tuple**
+
+```
+>>> def foo(*nums):
+...   return sum(nums)
+...
+>>> foo(1, 2, 3)
+6
+>>> foo(1, 2, 3, 4)
+10
+>>>
+```
+
+```
+>>> def foo(**kwargs):
+...   for k, v in kwargs.items():
+...     print(k, v)
+...
+>>> foo(name="John", age=16)
+name John
+age 16
+>>>
+```
 
 variable scope
 --------------
