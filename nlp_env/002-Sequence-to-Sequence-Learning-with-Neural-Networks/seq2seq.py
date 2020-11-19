@@ -85,8 +85,12 @@ def epoch_time(start_t, end_t):
             
 
 if __name__ == "__main__":
-    spacy_de = spacy.load('de_core_news_sm')
-    spacy_en = spacy.load('en_core_web_sm')
+    """
+    python3 -m spacy download en
+    python3 -m spacy download de
+    """
+    spacy_de = spacy.load('de')
+    spacy_en = spacy.load('en')
 
     SRC = Field(tokenize=tokenize_de,
                 init_token='<sos>',
