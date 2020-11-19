@@ -2,6 +2,7 @@ __pycache__
 .ipynb_checkpoints
 venv
 data
+.data
 
 aio_project/imgs
 rl_env/baselines
