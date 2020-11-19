@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda')
 
-    BATCH_SIZE = 128
+    BATCH_SIZE = 256
     train_iter, valid_iter, test_iter = BucketIterator.splits(
                                             (train_data, valid_data, test_data),
                                             batch_size=BATCH_SIZE,
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     TRG_PAD_IDX = TRG.vocab.stoi[TRG.pad_token]
     criterion = nn.CrossEntropyLoss(ignore_index=TRG_PAD_IDX)
 
-    N_EPOCHS = 10
+    N_EPOCHS = 20
     CLIP = 1
 
     best_valid_loss = float('inf')
@@ -171,5 +171,9 @@ if __name__ == "__main__":
 
     model.load_state_dict(best_model_weights)
     torch.save(model.state_dict(), 'tut1-model.pt')
+
+    model.load_state_dict(torch.load('tut1-model.pt'))
+    test_loss = evaluate(model, test_iter, criterion)
+    print(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
 
     
