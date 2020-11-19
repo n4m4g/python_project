@@ -3,6 +3,7 @@ __pycache__
 venv
 data
 .data
+*.pt
 
 aio_project/imgs
 rl_env/baselines
