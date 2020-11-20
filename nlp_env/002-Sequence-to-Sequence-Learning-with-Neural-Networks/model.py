@@ -40,7 +40,7 @@ class Decoder(nn.Module):
         # x.shape = (1, batch_size)
         embedded = self.dropout(self.embedding(x))
         # embedded.shape = (1, batch_size, emb_dim)
-        output, (h, c) = self.lstm(embedded)
+        output, (h, c) = self.lstm(embedded, (h, c))
         # output.shape = (1, batch_size, hid_dim*n_direction)
         # h.shape = (n_layer * n_direction, batch_size, hid_dim)
         # c.shape = (n_layer * n_direction, batch_size, hid_dim)
