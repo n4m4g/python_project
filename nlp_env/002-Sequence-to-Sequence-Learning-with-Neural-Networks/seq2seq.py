@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import random
 import math
 import time
@@ -117,7 +118,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda')
 
-    BATCH_SIZE = 256
+    BATCH_SIZE = 300
     train_iter, valid_iter, test_iter = BucketIterator.splits(
                                             (train_data, valid_data, test_data),
                                             batch_size=BATCH_SIZE,
@@ -140,40 +141,50 @@ if __name__ == "__main__":
 
     print(f"Model has {count_parameters(model):,} trainable parameters")
 
-    optimizer = optim.Adam(model.parameters())
-
     # TRG.pad_token = <pad>
     # TRG_PAD_IDX = 1
     TRG_PAD_IDX = TRG.vocab.stoi[TRG.pad_token]
     criterion = nn.CrossEntropyLoss(ignore_index=TRG_PAD_IDX)
 
-    N_EPOCHS = 20
-    CLIP = 1
-
-    best_valid_loss = float('inf')
-    best_model_weights = deepcopy(model.state_dict())
-
-    for epoch in range(N_EPOCHS):
-        start_t = time.time()
-        train_loss = train(model, train_iter, optimizer, criterion, CLIP)
-        valid_loss = evaluate(model, valid_iter, criterion)
-        end_t = time.time()
-        m, s = epoch_time(start_t, end_t)
-
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            best_model_weights = deepcopy(model.state_dict())
-
-        print(f'Epoch: {epoch+1:02} | Time: {m}m {s}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
-        print(f'\t Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
-
-
-    model.load_state_dict(best_model_weights)
-    torch.save(model.state_dict(), 'tut1-model.pt')
+    mode = 'train'
+    # mode = 'eval'
 
     model.load_state_dict(torch.load('tut1-model.pt'))
-    test_loss = evaluate(model, test_iter, criterion)
-    print(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
+    if mode == 'train':
+        optimizer = optim.Adam(model.parameters())
+
+
+        N_EPOCHS = 20
+        CLIP = 1
+
+        best_valid_loss = float('inf')
+        best_model_weights = deepcopy(model.state_dict())
+
+        for epoch in range(N_EPOCHS):
+            start_t = time.time()
+            train_loss = train(model, train_iter, optimizer, criterion, CLIP)
+            valid_loss = evaluate(model, valid_iter, criterion)
+            end_t = time.time()
+            m, s = epoch_time(start_t, end_t)
+
+            if valid_loss < best_valid_loss:
+                best_valid_loss = valid_loss
+                best_model_weights = deepcopy(model.state_dict())
+
+            print(f'Epoch: {epoch+1:02} | Time: {m}m {s}s')
+            print(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
+            print(f'\t Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
+
+
+        model.load_state_dict(best_model_weights)
+        torch.save(model.state_dict(), 'tut1-model.pt')
+
+    elif mode == 'eval':
+        model.load_state_dict(torch.load('tut1-model.pt'))
+        test_loss = evaluate(model, test_iter, criterion)
+        print(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
+
+    else:
+        assert ValueError, 'wrong mode'
 
     
