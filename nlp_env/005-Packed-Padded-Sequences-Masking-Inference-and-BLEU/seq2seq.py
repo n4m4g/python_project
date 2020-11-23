@@ -13,6 +13,9 @@ import matplotlib.ticker as ticker
 
 import torch
 from torch import nn, optim
+
+import warnings
+warnings.simplefilter("ignore", UserWarning)
 from torchtext.datasets import Multi30k
 from torchtext.data import Field, BucketIterator
 
