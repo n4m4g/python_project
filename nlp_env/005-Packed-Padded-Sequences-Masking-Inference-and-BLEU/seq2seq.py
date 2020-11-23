@@ -91,7 +91,68 @@ def epoch_time(start_t, end_t):
     s = int(t - m*60)
     return m, s
 
-            
+def translate_sentence(sentence, src_field, trg_field, model, device, max_len=50):
+    model.eval()
+    if isinstance(sentence, str):
+        nlp = spacy.load('de')
+        tokens = [token.text.lower() for token in nlp(sentence)]
+    else:
+        tokens = [token.lower() for token in sentence]
+
+    tokens = [src_field.init_token] + tokens + [src_field.eos_token]
+    # convert string to index
+    src_indexes = [src_field.vocab.stoi[token] for token in tokens]
+    # convert list into LongTensor
+    src = torch.tensor(src_indexes, dtype=torch.long, device=device).unsqueeze(1)
+    # src.shape = (src_len, 1)
+    src_len = torch.tensor([len(src_indexes)], dtype=torch.long, device=device)
+    # src_len.shape = (src_len,)
+
+    with torch.no_grad():
+        enc_output, h = model.encoder(src, src_len)
+        # enc_output.shape = (src_len, 1, enc_dim*n_direction)
+        # h.shape = (batch_size, dec_hid_dim)
+
+    mask = model.create_mask(src)
+    trg_indexes = [trg_field.vocab.stoi[trg_field.init_token]]
+    attentions = torch.zeros((max_len, 1, len(src_indexes)), device=device)
+
+    for i in range(max_len):
+        trg = torch.tensor([trg_indexes[-1]], dtype=torch.long, device=device)
+
+        with torch.no_grad():
+            output, h, attentions[i] = model.decoder(trg, h, enc_output, mask)
+
+        pred_token = output.argmax(dim=1).item()
+        trg_indexes.append(pred_token)
+
+        if pred_token == trg_field.vocab.stoi[trg_field.eos_token]:
+            break
+
+    trg_tokens = [trg_field.vocab.itos[index] for index in trg_indexes]
+
+    return trg_tokens[1:], attentions[:len(trg_tokens)-1]
+
+def display_attention(sentence, translation, attention):
+
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(111)
+
+    attention = attention.squeeze(1).cpu().detach().numpy()
+    # attention.shape = (max_len, src_len)
+
+    cax = ax.matshow(np.flip(attention, axis=1), cmap='bone')
+
+    ax.tick_params(labelsize=15)
+    ax.set_xticklabels(['']+['<sos>']+[t.lower() for t in sentence][::-1]+['<eos>'],
+                       rotation=45)
+    ax.set_yticklabels(['']+translation)
+
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     """
@@ -216,6 +277,22 @@ if __name__ == "__main__":
         model.load_state_dict(torch.load('tut1-model-400.pt'))
         test_loss = evaluate(model, test_iter, criterion)
         print(f'| Test Loss: {test_loss:.3f} | Test PPL: {math.exp(test_loss):7.3f} |')
+
+        # train_data
+        example_idx = 12
+
+        src = vars(train_data.examples[example_idx])['src']
+        trg = vars(train_data.examples[example_idx])['trg']
+        
+        print(f'src = {src}')
+        print(f'trg = {trg}')
+
+        translation, attention = translate_sentence(src, SRC, TRG, model, device)
+
+        print(f'predicted trg = {translation}')
+
+        display_attention(src, translation, attention)
+
 
     else:
         assert False, 'wrong mode'
