@@ -87,8 +87,8 @@ def epoch_time(start_t, end_t):
 
 if __name__ == "__main__":
     """
-    python3 -m spacy download en
     python3 -m spacy download de
+    python3 -m spacy download en
     """
     spacy_de = spacy.load('de')
     spacy_en = spacy.load('en')
@@ -102,6 +102,7 @@ if __name__ == "__main__":
                 eos_token='<eos>',
                 lower=True)
 
+    # https://torchtext.readthedocs.io/en/latest/datasets.html#multi30k
     train_data, valid_data, test_data = Multi30k.splits(exts=('.de', '.en'),
                                                         fields=(SRC, TRG))
 
@@ -135,7 +136,7 @@ if __name__ == "__main__":
 
     enc = Encoder(IN_DIM, ENC_EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, ENC_DROPOUT)
     attn = Attention(ENC_HID_DIM, DEC_HID_DIM)
-    dec = Decoder(IN_DIM, DEC_EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
+    dec = Decoder(OUT_DIM, DEC_EMB_DIM, ENC_HID_DIM, DEC_HID_DIM, DEC_DROPOUT, attn)
 
     model = Seq2Seq(enc, dec, device).to(device)
     model.apply(init_weights)

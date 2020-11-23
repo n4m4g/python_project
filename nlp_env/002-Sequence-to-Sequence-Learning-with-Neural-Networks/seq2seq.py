@@ -134,7 +134,7 @@ if __name__ == "__main__":
     DEC_DROPOUT = 0.5
 
     enc = Encoder(IN_DIM, ENC_EMB_DIM, HID_DIM, N_LAYER, ENC_DROPOUT)
-    dec = Decoder(IN_DIM, DEC_EMB_DIM, HID_DIM, N_LAYER, DEC_DROPOUT)
+    dec = Decoder(OUT_DIM, DEC_EMB_DIM, HID_DIM, N_LAYER, DEC_DROPOUT)
 
     model = Seq2Seq(enc, dec, device).to(device)
     model.apply(init_weights)
