@@ -4,6 +4,7 @@ venv
 data
 .data
 *.pt
+runs
 
 aio_project/imgs
 rl_env/baselines
