@@ -13,6 +13,7 @@ import matplotlib.ticker as ticker
 
 import torch
 from torch import nn, optim
+from torch.utils.tensorboard import SummaryWriter
 
 import warnings
 warnings.simplefilter("ignore", UserWarning)
@@ -22,13 +23,6 @@ from torchtext.data import Field, BucketIterator
 from model import init_weights
 from model import Encoder, Attention, Decoder, Seq2Seq
 
-SEED=1234
-
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
-torch.backends.cudnn.deterministic = True
 
 def tokenize_de(text):
     return [tok.text for tok in spacy_de.tokenizer(text)][::-1]
@@ -155,6 +149,14 @@ def display_attention(sentence, translation, attention):
     plt.close()
 
 if __name__ == "__main__":
+
+    SEED=1234
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.backends.cudnn.deterministic = True
+
     """
     python3 -m spacy download de
     python3 -m spacy download en
@@ -247,12 +249,14 @@ if __name__ == "__main__":
     TRG_PAD_IDX = TRG.vocab.stoi[TRG.pad_token]
     criterion = nn.CrossEntropyLoss(ignore_index=TRG_PAD_IDX)
 
-    # mode = 'train'
-    mode = 'eval'
+    writer = SummaryWriter()
+
+    mode = 'train'
+    # mode = 'eval'
     if mode == 'train':
         optimizer = optim.Adam(model.parameters())
 
-        N_EPOCHS = 50
+        N_EPOCHS = 20
         CLIP = 1
 
         best_valid_loss = float('inf')
@@ -272,6 +276,16 @@ if __name__ == "__main__":
             print(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
             print(f'\t Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
             print(f'\t Best Loss: {best_valid_loss:.3f} |  Best PPL: {math.exp(best_valid_loss):7.3f}')
+
+            writer.add_scalars('Loss', {'train loss': train_loss,
+                                        'valid loss': valid_loss,
+                                        'best loss': best_valid_loss}, epoch)
+            writer.add_scalars('PPL Loss', {'train loss': math.exp(train_loss),
+                                            'valid loss': math.exp(valid_loss),
+                                            'best loss': math.expt(best_valid_loss)}, epoch)
+        writer.flush()
+        writer.close()
+
 
     elif mode == 'eval':
         model.load_state_dict(torch.load('tut1-model-400.pt'))
