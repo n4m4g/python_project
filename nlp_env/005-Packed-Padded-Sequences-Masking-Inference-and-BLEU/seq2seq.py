@@ -13,6 +13,7 @@ import matplotlib.ticker as ticker
 
 import torch
 from torch import nn, optim
+from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.tensorboard import SummaryWriter
 
 import warnings
@@ -33,30 +34,62 @@ def tokenize_en(text):
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def train(model, iterator, optimizer, criterion, clip):
-    model.train()
-    epoch_loss = 0
+def train(model, iterator, optimizer, criterion, clip, scheduler=None):
+    if scheduler:
+        model.train()
+        epoch_loss = 0
 
-    for i, batch in enumerate(iterator):
-        src, src_len = batch.src
-        trg = batch.trg
+        for i, batch in enumerate(iterator):
+            src, src_len = batch.src
+            trg = batch.trg
 
-        optimizer.zero_grad()
-        output = model(src, src_len, trg)
+            optimizer.zero_grad()
+            output = model(src, src_len, trg)
 
-        # trg.shape = (trg_len, batch_size)
-        # output.shape = (trg_len, batch_size, out_dim)
-        trg = trg[1:].view(-1)
-        output = output[1:].view(-1, output.shape[-1])
-        # trg.shape = ((trg_len-1) * batch_size)
-        # output.shape = ((trg_len-1) * batch_size, out_dim)
+            # trg.shape = (trg_len, batch_size)
+            # output.shape = (trg_len, batch_size, out_dim)
+            trg = trg[1:].view(-1)
+            output = output[1:].view(-1, output.shape[-1])
+            # trg.shape = ((trg_len-1) * batch_size)
+            # output.shape = ((trg_len-1) * batch_size, out_dim)
 
-        loss = criterion(output, trg)
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
-        optimizer.step()
-        epoch_loss += loss.item()
-    return epoch_loss / len(iterator)
+            loss = criterion(output, trg)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
+            epoch_loss += loss.item()
+
+            break
+        
+        mean_loss = epoch_loss / 1
+        return mean_loss
+
+    else:
+        model.train()
+        epoch_loss = 0
+
+        for i, batch in enumerate(iterator):
+            src, src_len = batch.src
+            trg = batch.trg
+
+            optimizer.zero_grad()
+            output = model(src, src_len, trg)
+
+            # trg.shape = (trg_len, batch_size)
+            # output.shape = (trg_len, batch_size, out_dim)
+            trg = trg[1:].view(-1)
+            output = output[1:].view(-1, output.shape[-1])
+            # trg.shape = ((trg_len-1) * batch_size)
+            # output.shape = ((trg_len-1) * batch_size, out_dim)
+
+            loss = criterion(output, trg)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+            optimizer.step()
+            epoch_loss += loss.item()
+        
+        mean_loss = epoch_loss / len(iterator)
+        return mean_loss
 
 def evaluate(model, iterator, criterion):
     model.eval()
@@ -77,7 +110,9 @@ def evaluate(model, iterator, criterion):
 
         loss = criterion(output, trg)
         epoch_loss += loss.item()
-    return epoch_loss / len(iterator)
+
+    mean_loss = epoch_loss / len(iterator)
+    return mean_loss
 
 def epoch_time(start_t, end_t):
     t = end_t - start_t
@@ -148,6 +183,53 @@ def display_attention(sentence, translation, attention):
     plt.show()
     plt.close()
 
+class ExponentialLR(_LRScheduler):
+    def __init__(self, optimizer, end_lr, num_iter, last_epoch=-1):
+        self.end_lr = end_lr
+        self.num_iter = num_iter
+        super(ExponentialLR, self).__init__(optimizer, last_epoch)
+    
+    def get_lr(self):
+        r = self.last_epoch / (self.num_iter - 1)
+
+        return [base_lr * (self.end_lr / base_lr) ** r for base_lr in self.base_lrs]
+
+def plot(history, skip_start=10, skip_end=5, log_lr=True, show_lr=None, ax=None,suggest_lr=True):
+    lrs = history["lr"][skip_start:-skip_end]
+    losses = history["loss"][skip_start:-skip_end]
+
+    fig = None
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    ax.plot(lrs, losses)
+
+    if suggest_lr:
+        print("LR suggestion: steepest gradient")
+        min_grad_idx = None
+        min_grad_idx = (np.gradient(np.array(losses))).argmin()
+        if min_grad_idx is not None:
+            print("Suggested LR: {:.2E}".format(lrs[min_grad_idx]))
+            ax.scatter(
+                lrs[min_grad_idx],
+                losses[min_grad_idx],
+                s=75,
+                marker="o",
+                color="red",
+                zorder=3,
+                label="steepest gradient",
+            )
+            ax.legend()
+    if log_lr:
+        ax.set_xscale("log")
+
+    ax.set_xlabel("lr")
+    ax.set_ylabel("loss")
+
+    plt.show()
+
+
+
 if __name__ == "__main__":
 
     SEED=1234
@@ -205,7 +287,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda')
 
-    BATCH_SIZE = 128
+    BATCH_SIZE = 300
     
     """
     packed padded sequences is that all elements in the batch
@@ -249,12 +331,56 @@ if __name__ == "__main__":
     TRG_PAD_IDX = TRG.vocab.stoi[TRG.pad_token]
     criterion = nn.CrossEntropyLoss(ignore_index=TRG_PAD_IDX)
 
+    # tensorboard writer
     writer = SummaryWriter()
 
+    # mode = 'lr_finder'
     mode = 'train'
     # mode = 'eval'
-    if mode == 'train':
-        optimizer = optim.Adam(model.parameters())
+
+    if mode == 'lr_finder':
+        optimizer = optim.Adam(model.parameters(), lr=1e-6)
+
+        # history for lr_finder
+        history_lr_finder = {"lr": [], "loss": []}
+        best_loss_lr_finder = None
+        lr_scheduler = ExponentialLR(optimizer, end_lr=100, num_iter=100)
+
+        N_EPOCHS = 150
+        CLIP = 1
+
+        best_valid_loss = float('inf')
+
+        for epoch in range(N_EPOCHS):
+            start_t = time.time()
+            train_loss = train(model, train_iter, optimizer, criterion, CLIP, lr_scheduler)
+            valid_loss = evaluate(model, valid_iter, criterion)
+            end_t = time.time()
+            m, s = epoch_time(start_t, end_t)
+
+            history_lr_finder["lr"].append(lr_scheduler.get_lr()[0])
+            lr_scheduler.step()
+
+            if epoch == 0:
+                best_loss_lr_finder = valid_loss
+            else:
+                smooth_f = 0.05
+                valid_loss = smooth_f*valid_loss+(1-smooth_f)*history_lr_finder["loss"][-1]
+                if valid_loss < best_loss_lr_finder:
+                    best_loss_lr_finder = valid_loss
+
+            history_lr_finder["loss"].append(valid_loss)
+            if valid_loss > 5 * best_loss_lr_finder:
+                break
+            print(f'Epoch: {epoch+1:02} | Time: {m}m {s}s')
+            print(f'\tTrain Loss: {train_loss:.3f} | Train PPL: {math.exp(train_loss):7.3f}')
+            print(f'\t Val. Loss: {valid_loss:.3f} |  Val. PPL: {math.exp(valid_loss):7.3f}')
+            print(f'\t Best Loss: {best_valid_loss:.3f} |  Best PPL: {math.exp(best_valid_loss):7.3f}')
+
+        plot(history_lr_finder)
+
+    elif mode == 'train':
+        optimizer = optim.Adam(model.parameters(), lr=0.000811)
 
         N_EPOCHS = 20
         CLIP = 1
@@ -282,7 +408,7 @@ if __name__ == "__main__":
                                         'best loss': best_valid_loss}, epoch)
             writer.add_scalars('PPL Loss', {'train loss': math.exp(train_loss),
                                             'valid loss': math.exp(valid_loss),
-                                            'best loss': math.expt(best_valid_loss)}, epoch)
+                                            'best loss': math.exp(best_valid_loss)}, epoch)
         writer.flush()
         writer.close()
 
