@@ -36,6 +36,7 @@ class Encoder(nn.Module):
 
 class EncoderLayer(nn.Module):
     def __init__(self, hid_dim, n_head, pf_dim, dropout, device):
+        super(EncoderLayer, self).__init__()
         self.self_attention = MultiHeadAttentionLayer(hid_dim, n_head, dropout, device)
         self.layernorm1 = nn.LayerNorm(hid_dim)
         self.positionwise_feedforward = PositionwiseFeedForwardLayer(hid_dim, pf_dim, dropout)
@@ -54,4 +55,40 @@ class EncoderLayer(nn.Module):
         return src
 
         
+class MultiHeadAttentionLayer(nn.Module):
+    def __init__(self, hid_dim, n_head, dropout, device):
+        super(MultiHeadAttentionLayer, self).__init__()
+        assert hid_dim % n_head == 0
+
+        self.hid_dim = hid_dim
+        self.n_head = n_head
+        self.head_dim = hid_dim // n_head
+
+        self.fc_q = nn.Linear(hid_dim, hid_dim)
+        self.fc_k = nn.Linear(hid_dim, hid_dim)
+        self.fc_v = nn.Linear(hid_dim, hid_dim)
+        self.fc_o = nn.Linear(hid_dim, hid_dim)
+
+        self.dropout = nn.Dropout(dropout)
+
+        self.scale = torch.sqrt(torch.tensor([hid_dim], dtype=torch.float32, device=device))
+
+    def forward(self, q, k, v, mask=None):
+        # q_len == k_len == v_len
+        # q.shape = (batch_size, q_len, hid_dim)
+        # k.shape = (batch_size, k_len, hid_dim)
+        # v.shape = (batch_size, v_len, hid_dim)
+        batch_size = q.shape[0]
+
+        q = self.fc_q(q)
+        k = self.fc_k(k)
+        v = self.fc_v(v)
+        # q.shape = (batch_size, q_len, hid_dim)
+        # k.shape = (batch_size, k_len, hid_dim)
+        # v.shape = (batch_size, v_len, hid_dim)
+
+
+
+
+
 
