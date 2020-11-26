@@ -49,7 +49,7 @@ class EncoderLayer(nn.Module):
 
         _src, _ = self.self_attention(src, src, src, src_mask)
         src = self.layernorm1(src+self.dropout(_src))
-        _src = self.PositionwiseFeedForwardLayer(src)
+        _src = self.positionwise_feedforward(src)
         src = self.layernorm2(src+self.dropout(_src))
 
         return src
@@ -99,7 +99,7 @@ class MultiHeadAttentionLayer(nn.Module):
             Attention(q, k, v) = softmax(q * k^T / sqrt(hid_dim)) * v
         """
         energy = torch.matmul(q, k.permute(0, 1, 3, 2)) / self.scale
-        if mask:
+        if mask is not None:
             energy = energy.masked_fill(mask==0, -1e10)
         # energy.shape = (batch_size, n_head, q_len, k_len)
 
@@ -208,5 +208,47 @@ class DecoderLayer(nn.Module):
         # attention.shape = (batch_size, n_head, trg_len, src_len)
         return trg, attention
 
+class Seq2Seq(nn.Module):
+    def __init__(self, enc, dec, src_pad_idx, trg_pad_idx, device):
+        super(Seq2Seq, self).__init__()
+        self.enc = enc
+        self.dec = dec
+        self.src_pad_idx = src_pad_idx
+        self.trg_pad_idx = trg_pad_idx
+        self.device = device
 
+    def make_src_mask(self, src):
+        # src.shape = (batch_size, src_len)
+        src_mask = (src != self.src_pad_idx).unsqueeze(1).unsqueeze(1)
+        # src_mask.shape = (batch_size, 1, 1, src_len)
+        return src_mask
+         
+    def make_trg_mask(self, trg):
+        # trg.shape = (batch_size, trg_len)
+        trg_mask = (trg != self.trg_pad_idx).unsqueeze(1).unsqueeze(1)
+        # trg_mask.shape = (batch_size, 1, 1, trg_len)
+
+        trg_len = trg.shape[1]
+        trg_sub_mask = torch.tril(torch.ones((trg_len, trg_len), device=self.device)).bool()
+        # trg_sub_mask.shape = (trg_len, trg_len)
+        trg_mask = trg_mask & trg_sub_mask
+        # trg_mask.shape = (batch_size, 1, trg_len, trg_len)
+        return trg_mask
+
+    def forward(self, src, trg):
+        # src.shape = (batch_size, src_len)
+        # trg.shape = (batch_size, trg_len)
+
+        src_mask = self.make_src_mask(src)
+        trg_mask = self.make_trg_mask(trg)
+
+        # src_mask.shape = (batch_size, 1, 1, src_len)
+        # trg_mask.shape = (batch_size, 1, trg_len, trg_len)
+
+        enc_src = self.enc(src, src_mask)
+        # enc_src.shape = (batch_size, src_len, hid_dim)
+        output, attention = self.dec(trg, enc_src, trg_mask, src_mask)
+        # output.shape = (batch_size, trg_len, out_dim)
+        # attention.shape = (batch_size, n_head, trg_len, src_len)
+        return output, attention
 
