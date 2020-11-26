@@ -87,8 +87,126 @@ class MultiHeadAttentionLayer(nn.Module):
         # k.shape = (batch_size, k_len, hid_dim)
         # v.shape = (batch_size, v_len, hid_dim)
 
+        q = q.view(batch_size, -1, self.n_head, self.head_dim).permute(0, 2, 1, 3)
+        k = k.view(batch_size, -1, self.n_head, self.head_dim).permute(0, 2, 1, 3)
+        v = v.view(batch_size, -1, self.n_head, self.head_dim).permute(0, 2, 1, 3)
+        # q.shape = (batch_size, n_head, q_len, head_dim)
+        # k.shape = (batch_size, n_head, k_len, head_dim)
+        # v.shape = (batch_size, n_head, v_len, head_dim)
 
+        """
+        Scaled Dot-Product Attention
+            Attention(q, k, v) = softmax(q * k^T / sqrt(hid_dim)) * v
+        """
+        energy = torch.matmul(q, k.permute(0, 1, 3, 2)) / self.scale
+        if mask:
+            energy = energy.masked_fill(mask==0, -1e10)
+        # energy.shape = (batch_size, n_head, q_len, k_len)
 
+        attention = torch.softmax(energy, dim=-1)
+        # attention.shape = (batch_size, n_head, q_len, k_len)
+
+        x = torch.matmul(self.dropout(attention), v)
+        # x.shape = (batch_size, n_head, q_len, head_dim)
+        """
+        Scaled Dot-Product Attention end
+        """
+
+        x = x.permute(0, 2, 1, 3).contiguous()
+        # x.shape = (batch_size, q_len, n_head, head_dim)
+        
+        x = x.view(batch_size, -1, self.hid_dim)
+        # x.shape = (batch_size, q_len, hid_head)
+
+        x = self.fc_o(x)
+        # x.shape = (batch_size, q_len, hid_head)
+
+        return x, attention
+
+class PositionwiseFeedForwardLayer(nn.Module):
+    def __init__(self, hid_dim, pf_dim, dropout):
+        super(PositionwiseFeedForwardLayer, self).__init__()
+        self.fc1 = nn.Linear(hid_dim, pf_dim)
+        self.fc2 = nn.Linear(pf_dim, hid_dim)
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        # x.shape = (batch_size, seq_len, hid_dim)
+        x = self.dropout(torch.relu(self.fc1(x)))
+        # x.shape = (batch_size, seq_len, pf_dim)
+        x = self.fc2(x)
+        # x.shape = (batch_size, seq_len, hid_dim)
+        return x
+
+class Decoder(nn.Module):
+    def __init__(self, out_dim, hid_dim, n_layer, n_head, 
+            pf_dim, dropout, device, max_length=100):
+        super(Decoder, self).__init__()
+        self.device = device
+        self.tok_embedding = nn.Embedding(out_dim, hid_dim)
+        self.pos_embedding = nn.Embedding(max_length, hid_dim)
+        self.layers = nn.ModuleList([DecoderLayer(hid_dim,
+                                                  n_head,
+                                                  pf_dim,
+                                                  dropout,
+                                                  device)
+                                     for _ in range(n_layer)])
+        self.fc_out = nn.Linear(hid_dim, out_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.scale = torch.sqrt(torch.tensor([hid_dim], 
+                                dtype=torch.float32, 
+                                device=device))
+
+    def forward(self, trg, enc_src, trg_mask, src_mask):
+        # trg.shape = (batch_size, trg_len)
+        # enc_src.shape = (batch_size, src_len, hid_dim)
+        # trg_mask = (batch_size, trg_len)
+        # src_mask = (batch_size, src_len)
+
+        batch_size, trg_len = trg.shape
+        pos = torch.arange(0, trg_len, device=self.device).unsqueeze(0).repeat(batch_size, 1)
+        # pos.shape = (batch_size, trg_len)
+
+        trg = self.dropout(self.tok_embedding(trg)*self.scale+self.pos_embedding(pos))
+        # trg.shape = (batch_size, trg_len, hid_dim)
+
+        for layer in self.layers:
+            trg, attention = layer(trg, enc_src, trg_mask, src_mask)
+
+        # trg.shape = (batch_size, trg_len, hid_dim)
+
+        output = self.fc_out(trg)
+        return output, attention
+
+class DecoderLayer(nn.Module):
+    def __init__(self, hid_dim, n_head, pf_dim, dropout, device):
+        super(DecoderLayer, self).__init__()
+        self.self_attention = MultiHeadAttentionLayer(hid_dim, n_head, dropout, device)
+        self.layernorm1 = nn.LayerNorm(hid_dim)
+        self.enc_attention = MultiHeadAttentionLayer(hid_dim, n_head, dropout, device)
+        self.layernorm2 = nn.LayerNorm(hid_dim)
+        self.positionwise_feedforward = PositionwiseFeedForwardLayer(hid_dim, pf_dim, dropout)
+        self.layernorm3 = nn.LayerNorm(hid_dim)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, trg, enc_src, trg_mask, src_mask):
+        # trg.shape = (batch_size, trg_len)
+        # enc_src = (batch_size, src_len, hid_dim)
+        # trg_mask = (batch_size, trg_len)
+        # src_mask = (batch_size, src_len)
+
+        _trg, _ = self.self_attention(trg, trg, trg, trg_mask)
+        trg = self.layernorm1(trg + self.dropout(_trg))
+        # trg.shape = (batch_size, trg_len, hid_dim) 
+        _trg, attention = self.enc_attention(trg, enc_src, enc_src, src_mask)
+        trg = self.layernorm2(trg + self.dropout(_trg))
+        # trg.shape = (batch_size, trg_len, hid_dim) 
+        _trg = self.positionwise_feedforward(trg)
+        trg = self.layernorm3(trg + self.dropout(_trg))
+        # trg.shape = (batch_size, trg_len, hid_dim) 
+        # attention.shape = (batch_size, n_head, trg_len, src_len)
+        return trg, attention
 
 
 
