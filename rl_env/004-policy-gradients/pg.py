@@ -62,7 +62,7 @@ def main():
                 if ep_rs_sum > 500:
                     RENDER = True
 
-                if (episode+1) == 30:
+                if episode == 30:
                     plt.plot(vt)
                     plt.xlabel('episode steps')
                     plt.ylabel('normalized state-action value')

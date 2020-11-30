@@ -3,3 +3,11 @@ TF-IDF
         word frequency in an article,
     IDF: inverse document frequency
         inverse the word frequency in all articles
+
+lr_finder
+    1. create history, best_loss
+    2. check no scheduler attached on optimizer
+    3. set learning rate
+    4. step mode, exp
+    5. loss = train_batch
+    6. store lr from schedule and schedule.step
