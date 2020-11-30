@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
+
 import gym
 import numpy as np
 import torch
 from torch.distributions import Categorical
 from torch import nn, optim
-from torch.nn import functional as F
 import matplotlib.pyplot as plt
 
 
@@ -25,8 +26,7 @@ class Net(nn.Module):
 
 
 class PolicyGradient(object):
-    def __init__(self, n_actions: int, n_features: int, 
-            lr: float =0.01, reward_decay: float =0.95):
+    def __init__(self, n_actions, n_features, lr=0.01, reward_decay=0.95):
         self.n_actions = n_actions
         self.n_features = n_features
         self.lr = lr
@@ -54,14 +54,14 @@ class PolicyGradient(object):
         self.ep_a.append(a)
         self.ep_r.append(r)
 
-
     def learn(self):
         o_tensor = torch.tensor(np.vstack(self.ep_o), dtype=torch.float)
         a_tensor = torch.tensor(np.array(self.ep_a), dtype=torch.long)
         vt = self.discount_and_norm_rewards()
         vt_tensor = torch.tensor(np.array(vt), dtype=torch.float)
 
-        # Can’t call numpy() on Variable that requires grad. Use var.detach().numpy()
+        # Can’t call numpy() on Variable that requires grad.
+        # Use var.detach().numpy()
         # means some of data are not as torch.tensor type
 
         pred = self.net(o_tensor)
@@ -73,7 +73,7 @@ class PolicyGradient(object):
         loss.backward()
         self.optimizer.step()
 
-        self.ep_o, self.ep_a, self.ep_r = [], [] ,[]
+        self.ep_o, self.ep_a, self.ep_r = [], [], []
 
         return vt
 
@@ -89,12 +89,12 @@ class PolicyGradient(object):
 
         return discounted_ep_r
 
+
 def main():
     RENDER = False
 
     # DISPLAY_REWARD_THRESHOLD = 195
     # env = gym.make('CartPole-v0')
-    
     DISPLAY_REWARD_THRESHOLD = -110
     env = gym.make('MountainCar-v0')
     env.seed(1)
@@ -105,10 +105,11 @@ def main():
     print(env.observation_space.high)
     print(env.observation_space.low)
 
+    assert False
 
     agent = PolicyGradient(
-            n_actions = env.action_space.n,
-            n_features = env.observation_space.shape[0],
+            n_actions=env.action_space.n,
+            n_features=env.observation_space.shape[0],
             lr=0.001,
             reward_decay=0.995
             )
@@ -150,7 +151,8 @@ def main():
                 if sum(real_reward)/(episode+1) > DISPLAY_REWARD_THRESHOLD:
                     RENDER = True
 
-                print(f"Episode: {episode}, reward: {running_reward}, avg reward = {sum(real_reward)/(episode+1):.2f}")
+                print(f"Episode: {episode}, reward: {running_reward}")
+                print(f"avg reward = {sum(real_reward)/(episode+1):.2f}")
 
                 vt = agent.learn()
 
@@ -161,7 +163,7 @@ def main():
                     plt.show()
                 break
             s = s_
-                    
+
 
 if __name__ == "__main__":
     main()
