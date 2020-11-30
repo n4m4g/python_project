@@ -36,7 +36,7 @@ def main():
             reward_decay=0.995)
 
     episodes = 3000
-    total_reward = [0]*episodes
+    total_reward = []
     for episode in range(episodes):
         s = env.reset()
         # s : list
@@ -54,12 +54,14 @@ def main():
 
             if done or (i+1) == MAX_EXPLORE:
                 ep_rs_sum = sum(agent.ep_r)
-                total_reward[episode] = ep_rs_sum
+                total_reward.append(ep_rs_sum)
+                avg_reward = sum(total_reward)/len(total_reward)
                 print(f"Episode: {episode+1}")
                 print(f"\treward: {ep_rs_sum}, done: {done}")
+                print(f"\tavg reward: {avg_reward}")
                 vt = agent.learn()
 
-                if ep_rs_sum > 500:
+                if avg_reward > 200:
                     RENDER = True
 
                 if episode == 30:
