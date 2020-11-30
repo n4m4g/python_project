@@ -56,6 +56,8 @@ def main():
             # s.shape = (4,)
             # r : float
 
+            # done means the pole is down
+            # last reward give negative reward
             if done:
                 r = -20
 
