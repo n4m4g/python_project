@@ -1,167 +1,76 @@
+#!/usr/bin/env python3
+
 import gym
-import numpy as np
-import torch
-from torch.distributions import Categorical
-from torch import nn, optim
-from torch.nn import functional as F
 import matplotlib.pyplot as plt
 
+from agent import PolicyGradient
 
-class Net(nn.Module):
-    def __init__(self, n_features, n_actions):
-        super(Net, self).__init__()
-        self.fc1 = nn.Linear(n_features, 32)
-        self.fc1.weight.data.normal_(0, 0.3)
-        self.fc1.bias.data.fill_(0.1)
-        self.fc2 = nn.Linear(32, n_actions)
-        self.fc2.weight.data.normal_(0, 0.3)
-        self.fc2.bias.data.fill_(0.1)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = torch.tanh(x)
-        x = self.fc2(x)
-        return x
-
-
-class PolicyGradient(object):
-    def __init__(self, n_actions: int, n_features: int, 
-            lr: float =0.01, reward_decay: float =0.95):
-        self.n_actions = n_actions
-        self.n_features = n_features
-        self.lr = lr
-        self.gamma = reward_decay
-
-        self.ep_o = []
-        self.ep_a = []
-        self.ep_r = []
-
-        self.net = Net(n_features, n_actions)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=lr)
-        # nn.CrossEntropy = nn.LogSoftmax + nn.NLLLoss
-        self.criterion = nn.CrossEntropyLoss(reduction='none')
-
-    def choose_action(self, o):
-        o_tensor = torch.tensor(o, dtype=torch.float).unsqueeze(0)
-        prob = nn.Softmax(dim=1)(self.net(o_tensor))
-        m = Categorical(prob)
-        action = np.arange(prob.shape[1])[m.sample().numpy()[0]]
-
-        return action
-
-    def store_transition(self, o, a, r):
-        self.ep_o.append(o)
-        self.ep_a.append(a)
-        self.ep_r.append(r)
-
-
-    def learn(self):
-        o_tensor = torch.tensor(np.vstack(self.ep_o), dtype=torch.float)
-        a_tensor = torch.tensor(np.array(self.ep_a), dtype=torch.long)
-        vt = self.discount_and_norm_rewards()
-        vt_tensor = torch.tensor(np.array(vt), dtype=torch.float)
-
-        # Can’t call numpy() on Variable that requires grad. Use var.detach().numpy()
-        # means some of data are not as torch.tensor type
-
-        pred = self.net(o_tensor)
-
-        neg_log_prob = self.criterion(pred, a_tensor)
-        loss = torch.mean(neg_log_prob*vt_tensor)
-
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        self.ep_o, self.ep_a, self.ep_r = [], [] ,[]
-
-        return vt
-
-    def discount_and_norm_rewards(self):
-        discounted_ep_r = np.zeros_like(self.ep_r)
-        running_add = 0
-        for t in reversed(range(len(self.ep_r))):
-            running_add = running_add*self.gamma + self.ep_r[t]
-            discounted_ep_r[t] = running_add
-
-        discounted_ep_r -= np.mean(discounted_ep_r)
-        discounted_ep_r /= np.std(discounted_ep_r)
-
-        return discounted_ep_r
 
 def main():
     RENDER = False
+    MAX_EXPLORE = 2000
 
-    # DISPLAY_REWARD_THRESHOLD = 195
-    # env = gym.make('CartPole-v0')
-    
-    DISPLAY_REWARD_THRESHOLD = -110
-    env = gym.make('MountainCar-v0')
+    # env = gym.make('MountainCar-v0')
+    env = gym.make('CartPole-v0')
     env.seed(1)
     env = env.unwrapped
 
-    print(env.action_space)
-    print(env.observation_space)
-    print(env.observation_space.high)
-    print(env.observation_space.low)
-
+    print(f"action_space: {env.action_space}")
+    print(f"action_space.n: {env.action_space.n}")
+    print(f"observation_space: {env.observation_space}")
+    print(f"observation_space.shape: {env.observation_space.shape}")
+    print(f"observation_space.high: {env.observation_space.high}")
+    print(f"observation_space.low: {env.observation_space.low}")
+    # action_space: Discrete(3)
+    # action_space.n: 3
+    # observation_space:
+    #     Box(-1.2000000476837158, 0.6000000238418579, (2,), float32)
+    # observation_space.shape: (2,)
+    # observation_space.high: [0.6  0.07]
+    # observation_space.low: [-1.2  -0.07]
 
     agent = PolicyGradient(
-            n_actions = env.action_space.n,
-            n_features = env.observation_space.shape[0],
+            n_features=env.observation_space.shape[0],
+            n_actions=env.action_space.n,
             lr=0.001,
-            reward_decay=0.995
-            )
+            reward_decay=0.995)
 
     episodes = 3000
     total_reward = [0]*episodes
-    real_reward = [0]*episodes
     for episode in range(episodes):
         s = env.reset()
-        while True:
+        # s : list
+        # s.shape = (2,)
+        for i in range(MAX_EXPLORE):
             if RENDER:
                 env.render()
-            # env.render()
-
             a = agent.choose_action(s)
-            s_, r, done, info = env.step(a)
-            real_reward[episode] += r
-
-            # position, velocity = s_
-            # print(s_)
-
-            # position_r = abs(position+0.5)
-            # if (velocity<0.0 and a==0) or (velocity>=0.0 and a==2):
-            #     action_r = 1
-            # else:
-            #     action_r = 0
-
-            # r = position_r + action_r
+            # a : scalar
+            s_, r, done, _ = env.step(a)
+            # s : list, shape=(2,)
+            # r : float
+            # done : bool
             agent.store_transition(s, a, r)
 
-            if done:
+            if done or (i+1) == MAX_EXPLORE:
                 ep_rs_sum = sum(agent.ep_r)
-                if 'running_reward' not in globals():
-                    running_reward = ep_rs_sum
-                else:
-                    running_reward = running_reward*0.99+ep_rs_sum*0.01
-
-                total_reward[episode] = running_reward
-                if sum(real_reward)/(episode+1) > DISPLAY_REWARD_THRESHOLD:
-                    RENDER = True
-
-                print(f"Episode: {episode}, reward: {running_reward}, avg reward = {sum(real_reward)/(episode+1):.2f}")
-
+                total_reward[episode] = ep_rs_sum
+                print(f"Episode: {episode+1}")
+                print(f"\treward: {ep_rs_sum}, done: {done}")
                 vt = agent.learn()
 
-                if episode == 30:
+                if ep_rs_sum > 500:
+                    RENDER = True
+
+                if (episode+1) == 30:
                     plt.plot(vt)
                     plt.xlabel('episode steps')
                     plt.ylabel('normalized state-action value')
                     plt.show()
                 break
+
             s = s_
-                    
+
 
 if __name__ == "__main__":
     main()
