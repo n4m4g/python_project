@@ -66,11 +66,12 @@ def main():
             s = s_
             ep_reward += r
 
-            if (j+1) == MAX_EP_STEPS:
+            if done or (j+1) == MAX_EP_STEPS:
                 print(f"Episode: {i:03d}")
                 print(f"\tReward: {ep_reward:.3f}, Explore: {var:.2f}")
                 if ep_reward > -150:
                     RENDER = True
+                break
     env.close()
 
 
