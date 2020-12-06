@@ -9,7 +9,6 @@ https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master
 '''
 
 import gym
-import numpy as np
 import torch
 from torch import nn, optim
 from torch.distributions import MultivariateNormal
@@ -68,9 +67,9 @@ class ActorCritic(nn.Module):
         action_logprob = dist.log_prob(action)
         # action_logprob.shape = (1,)
 
-        memory.states.append(state.detach().cpu().numpy())
-        memory.actions.append(action.detach().cpu().numpy())
-        memory.logprobs.append(action_logprob.detach().cpu().numpy())
+        memory.states.append(state.detach())
+        memory.actions.append(action.detach())
+        memory.logprobs.append(action_logprob.detach())
 
         return action.detach()
 
@@ -90,7 +89,11 @@ class ActorCritic(nn.Module):
         # dist_entropy.shape = (batch_size,)
 
         state_value = self.critic(state)
+        # state_value.shape = (batch_size, 1)
 
+        # action_logprob.shape = (batch_size,)
+        # state_value.shape = (batch_size, 1)
+        # dist_entropy.shape = (batch_size,)
         return action_logprob, torch.squeeze(state_value), dist_entropy
 
 
@@ -126,8 +129,7 @@ class PPO:
                                  dtype=torch.float32,
                                  device=self.device).unsqueeze(0)
             # state.shape = (1, s_dim)
-            action = self.policy_old.act(state, memory)
-            action = action.squeeze(0).cpu().numpy()
+            action = self.policy_old.act(state, memory).numpy()[0]
             # action : numpy array
             # action.shape = (a_dim,)
         return action
@@ -144,34 +146,35 @@ class PPO:
         rewards = torch.tensor(rewards,
                                dtype=torch.float32,
                                device=self.device)
-        # rewards.shape = (len(memory.rewards),)
+        # rewards.shape = (mem_len,)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-        # rewards.shape = (len(memory.rewards),)
+        # rewards.shape = (mem_len,)
 
-        old_states = torch.tensor(np.vstack(memory.states),
-                                  dtype=torch.float32,
-                                  device=self.device)
-        # old_states.shape = (batch_size, s_dim)
-        old_actions = torch.tensor(np.vstack(memory.actions),
-                                   dtype=torch.float32,
-                                   device=self.device)
-        # old_actions.shape = (batch_size, a_dim)
-        old_logprobs = torch.tensor(np.vstack(memory.logprobs),
-                                    dtype=torch.float32,
-                                    device=self.device)
-        # old_logprobs.shape = (batch_size, 1)
+        old_states = torch.stack(memory.states).to(self.device).squeeze(1)
+        # old_states.shape = (mem_len, s_dim)
+        old_actions = torch.stack(memory.actions).to(self.device).squeeze(1)
+        # old_actions.shape = (mem_len, a_dim)
+        old_logprobs = torch.stack(memory.logprobs).to(self.device).squeeze(1)
+        # old_logprobs.shape = (mem_len,)
 
         for _ in range(self.K_epochs):
             result = self.policy.evaluate(old_states, old_actions)
             logprobs, state_values, dist_entropy = result
+            # logprob.shape = (mem_len,)
+            # state_value.shape = (mem_len,)
+            # dist_entropy.shape = (mem_len,)
 
-            ratios = torch.exp(logprobs - old_logprobs.detach())
+            ratios = torch.exp(logprobs - old_logprobs)
+            # ratios.shape = (mem_len,)
 
             advantages = rewards - state_values.detach()
+            # advantages.shape = (mem_len,)
             surr1 = ratios * advantages
+            # surr1.shape = (mem_len,)
             surr2 = torch.clip(ratios,
                                1-self.eps_clip,
                                1+self.eps_clip) * advantages
+            # surr2.shape = (mem_len,)
 
             loss = (-torch.min(surr1, surr2) +
                     0.5 * self.criterion(state_values, rewards) -
@@ -185,8 +188,8 @@ class PPO:
 
 
 def main():
-    env_name = 'BipedalWalker-v2'
-    render = True
+    env_name = 'BipedalWalker-v3'
+    render = False
     solved_reward = 300
     log_interval = 20
     max_episodes = 10000
@@ -206,7 +209,7 @@ def main():
     a_dim = env.action_space.shape[0]
     # s_dim, a_dim = 24, 4
 
-    device = torch.device('cuda')
+    device = torch.device('cpu')
 
     memory = Memory()
     ppo = PPO(s_dim, a_dim, action_std, lr, betas,
