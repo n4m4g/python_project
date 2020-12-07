@@ -165,7 +165,7 @@ class PPO:
         old_logprobs = torch.stack(memory.logprobs).to(self.device).squeeze(1)
         # old_logprobs.shape = (mem_len,)
 
-        total_loss = 0
+        # total_loss = 0
 
         for i in range(self.K_epochs):
             result = self.policy.evaluate(old_states, old_actions)
@@ -195,10 +195,9 @@ class PPO:
             loss.mean().backward()
             self.optimizer.step()
 
-            total_loss += loss.mean().item()
+            # total_loss += loss.mean().item()
 
-        mean_loss = total_loss/self.K_epochs
-        print(f"Loss: {mean_loss:0.4f}")
+        # mean_loss = total_loss/self.K_epochs
 
         self.policy_old.load_state_dict(self.policy.state_dict())
 
@@ -206,7 +205,7 @@ class PPO:
 def main():
     env_name = 'BipedalWalker-v3'
     render = False
-    solved_reward = 300
+    solved_reward = 60
     log_interval = 20
     max_episodes = 10000
     max_timesteps = 1500
@@ -268,7 +267,13 @@ def main():
             if done:
                 break
 
-        avg_length += t
+        avg_length += (t+1)
+
+        # solved_reward = 60
+        # log_interval = 20
+        # max_episodes = 10000
+        # max_timesteps = 1500
+        # update_timestep = 8000
 
         if running_reward > log_interval * solved_reward:
             print("### Solved! ###")
