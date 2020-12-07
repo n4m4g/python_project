@@ -6,12 +6,28 @@ pip install box2d-py
 
 Morvan
 https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master/contents/12_Proximal_Policy_Optimization/simply_PPO.py
+
+openai
+https://spinningup.openai.com/en/latest/algorithms/ppo.html
+
+RL algos getting stuck in local optima
+The policy quickly becomes deterministic without sufficiently exploring.
+Reduce learning rate significantly or incorporate a method of maintaining
+stochasticity. Look up soft actor critic.
 '''
 
+import time
 import gym
 import torch
 from torch import nn, optim
 from torch.distributions import MultivariateNormal
+
+
+def epoch_time(start_t, end_t):
+    t = end_t - start_t
+    m = int(t / 60)
+    s = int(t - m*60)
+    return m, s
 
 
 class Memory:
@@ -129,7 +145,7 @@ class PPO:
                                  dtype=torch.float32,
                                  device=self.device).unsqueeze(0)
             # state.shape = (1, s_dim)
-            action = self.policy_old.act(state, memory).numpy()[0]
+            action = self.policy_old.act(state, memory).cpu().numpy()[0]
             # action : numpy array
             # action.shape = (a_dim,)
         return action
@@ -157,23 +173,26 @@ class PPO:
         old_logprobs = torch.stack(memory.logprobs).to(self.device).squeeze(1)
         # old_logprobs.shape = (mem_len,)
 
-        for _ in range(self.K_epochs):
+        # total_loss = 0
+
+        for i in range(self.K_epochs):
             result = self.policy.evaluate(old_states, old_actions)
             logprobs, state_values, dist_entropy = result
             # logprob.shape = (mem_len,)
             # state_value.shape = (mem_len,)
             # dist_entropy.shape = (mem_len,)
 
+            advantages = rewards - state_values.detach()
+            # advantages.shape = (mem_len,)
+
             ratios = torch.exp(logprobs - old_logprobs)
             # ratios.shape = (mem_len,)
 
-            advantages = rewards - state_values.detach()
-            # advantages.shape = (mem_len,)
-            surr1 = ratios * advantages
+            surr1 = advantages * ratios
             # surr1.shape = (mem_len,)
-            surr2 = torch.clip(ratios,
-                               1-self.eps_clip,
-                               1+self.eps_clip) * advantages
+            surr2 = advantages * torch.clip(ratios,
+                                            1-self.eps_clip,
+                                            1+self.eps_clip)
             # surr2.shape = (mem_len,)
 
             loss = (-torch.min(surr1, surr2) +
@@ -184,18 +203,22 @@ class PPO:
             loss.mean().backward()
             self.optimizer.step()
 
+            # total_loss += loss.mean().item()
+
+        # mean_loss = total_loss/self.K_epochs
+
         self.policy_old.load_state_dict(self.policy.state_dict())
 
 
 def main():
     env_name = 'BipedalWalker-v3'
     render = False
-    solved_reward = 300
+    solved_reward = 60
     log_interval = 20
     max_episodes = 10000
     max_timesteps = 1500
 
-    update_timestep = 4000
+    update_timestep = 8000
     action_std = 0.5
     K_epochs = 80
     eps_clip = 0.2
@@ -209,7 +232,13 @@ def main():
     a_dim = env.action_space.shape[0]
     # s_dim, a_dim = 24, 4
 
-    device = torch.device('cpu')
+    # print(env.observation_space.high)
+    # print(env.observation_space.low)
+    # print(env.action_space.high)
+    # print(env.action_space.low)
+    # assert False
+
+    device = torch.device('cuda')
 
     memory = Memory()
     ppo = PPO(s_dim, a_dim, action_std, lr, betas,
@@ -218,9 +247,12 @@ def main():
     running_reward = 0
     avg_length = 0
     time_step = 0
+    total_time = time.time()
 
     for eps in range(max_episodes):
         state = env.reset()
+        if eps % log_interval == 0:
+            start_t = time.time()
         for t in range(max_timesteps):
             time_step += 1
             action = ppo.choose_action(state, memory)
@@ -243,21 +275,32 @@ def main():
             if done:
                 break
 
-        avg_length += t
+        avg_length += (t+1)
+
+        # solved_reward = 60
+        # log_interval = 20
+        # max_episodes = 10000
+        # max_timesteps = 1500
+        # update_timestep = 8000
 
         if running_reward > log_interval * solved_reward:
             print("### Solved! ###")
-            torch.save(ppo.policy.state_dict(), 'ppo_solved.pt')
+            torch.save(ppo.policy.state_dict(), 'ckpt/ppo_solved.pt')
             break
 
         if (eps+1) % 500 == 0:
-            torch.save(ppo.policy.state_dict(), 'ppo.pt')
+            torch.save(ppo.policy.state_dict(), 'ckpt/ppo.pt')
 
         if (eps+1) % log_interval == 0:
+            end_t = time.time()
+            m, s = epoch_time(start_t, end_t)
+            t_m, t_s = epoch_time(total_time, end_t)
+
             avg_length = int(avg_length/log_interval)
             running_reward = int(running_reward/log_interval)
 
             print(f"Episode {eps+1}")
+            print(f"\tTime: {m}m {s}s | Total Time: {t_m}m {t_s}s")
             print(f"\tAvg length: {avg_length}")
             print(f"\tAvg reward: {running_reward}")
             running_reward = 0
