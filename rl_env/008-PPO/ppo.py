@@ -6,6 +6,14 @@ pip install box2d-py
 
 Morvan
 https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master/contents/12_Proximal_Policy_Optimization/simply_PPO.py
+
+openai
+https://spinningup.openai.com/en/latest/algorithms/ppo.html
+
+RL algos getting stuck in local optima
+The policy quickly becomes deterministic without sufficiently exploring.
+Reduce learning rate significantly or incorporate a method of maintaining
+stochasticity. Look up soft actor critic.
 '''
 
 import time
