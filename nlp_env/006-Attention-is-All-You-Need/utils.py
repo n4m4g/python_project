@@ -1,26 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import spacy
 from torch import nn
 from torch.optim.lr_scheduler import _LRScheduler
-
-
-def tokenize_de(text):
-    """
-    Tokenizes German text from a string into a list of strings
-    """
-    # text : sentence in string
-    spacy_de = spacy.load('de')
-    return [tok.text for tok in spacy_de.tokenizer(text)]
-
-
-def tokenize_en(text):
-    """
-    Tokenizes English text from a string into a list of strings
-    """
-    # text : sentence in string
-    spacy_en = spacy.load('en')
-    return [tok.text for tok in spacy_en.tokenizer(text)]
 
 
 def count_parameters(model):

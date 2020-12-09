@@ -5,6 +5,7 @@ import math
 import time
 
 import numpy as np
+import spacy
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -17,7 +18,6 @@ from torchtext.data import Field, BucketIterator
 
 
 from model import Encoder, Decoder, Seq2Seq
-from utils import tokenize_de, tokenize_en
 from utils import count_parameters, initialize_weights
 from utils import epoch_time, plot
 from utils import ExponentialLR
@@ -102,6 +102,22 @@ def evaluate(model, iterator, criterion):
     return epoch_loss / len(iterator)
 
 
+def tokenize_de(text):
+    """
+    Tokenizes German text from a string into a list of strings
+    """
+    # text : sentence in string
+    return [tok.text for tok in spacy_de.tokenizer(text)]
+
+
+def tokenize_en(text):
+    """
+    Tokenizes English text from a string into a list of strings
+    """
+    # text : sentence in string
+    return [tok.text for tok in spacy_en.tokenizer(text)]
+
+
 if __name__ == "__main__":
 
     SEED = 1234
@@ -124,11 +140,11 @@ if __name__ == "__main__":
                 lower=True,
                 batch_first=True)
 
+    spacy_de = spacy.load('de')
+    spacy_en = spacy.load('en')
     train_data, valid_data, test_data = Multi30k.splits(exts=('.de', '.en'),
                                                         fields=(SRC, TRG))
 
-    # print(train_data[0])
-    # assert False
     SRC.build_vocab(train_data, min_freq=2)
     TRG.build_vocab(train_data, min_freq=2)
 
@@ -141,7 +157,6 @@ if __name__ == "__main__":
                                   device=device)
 
     train_iterator, valid_iterator, test_iterator = iters
-    assert False
 
     IN_DIM = len(SRC.vocab)
     OUT_DIM = len(TRG.vocab)
