@@ -25,14 +25,17 @@ if __name__ == "__main__":
 
     # utilize
     utilization = nvmlDeviceGetUtilizationRates(handle)
-    print("GPU/MEM Util: \t{}% / {}%".format(utilization.gpu,
-                                        utilization.memory))
+    print("GPU Util: \t{}%".format(utilization.gpu))
+    print("MEM Util: \t{}%".format(utilization.memory))
 
     # memory
     info = nvmlDeviceGetMemoryInfo(handle)
     mem_total = int(info.total/1024/1024)
     mem_used = int(info.used/1024/1024)
-    print("Memory: \t{}MiB / {}MiB".format(mem_used, mem_total))
+    mem_free = int(info.free/1024/1024)
+    print("Memory: \t{}MiB | {}MiB | {}MiB".format(mem_used,
+                                                   mem_free,
+                                                   mem_total))
 
     # temperature
     temp = nvmlDeviceGetTemperature(handle, 0)
@@ -45,7 +48,7 @@ if __name__ == "__main__":
     # power state
     power_used = int(nvmlDeviceGetPowerUsage(handle)/1000)
     power_limit = int(nvmlDeviceGetPowerManagementDefaultLimit(handle)/1000)
-    print("Power Usage/Cap: \t{}W / {}W".format(power_used, power_limit))
+    print("Power Util: \t{}W / {}W".format(power_used, power_limit))
 
     # decoder usage
     utilization, samplingPeriodUs = nvmlDeviceGetDecoderUtilization(handle)
