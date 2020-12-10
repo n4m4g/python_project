@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     # utilize
     utilization = nvmlDeviceGetUtilizationRates(handle)
-    print("GPU-MEM: \t{}% / {}%".format(utilization.gpu,
+    print("GPU/MEM Util: \t{}% / {}%".format(utilization.gpu,
                                         utilization.memory))
 
     # memory
@@ -45,7 +45,7 @@ if __name__ == "__main__":
     # power state
     power_used = int(nvmlDeviceGetPowerUsage(handle)/1000)
     power_limit = int(nvmlDeviceGetPowerManagementDefaultLimit(handle)/1000)
-    print("Power state: \t{}W / {}W".format(power_used, power_limit))
+    print("Power Usage/Cap: \t{}W / {}W".format(power_used, power_limit))
 
     # decoder usage
     utilization, samplingPeriodUs = nvmlDeviceGetDecoderUtilization(handle)
