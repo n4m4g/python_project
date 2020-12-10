@@ -3,8 +3,9 @@ __pycache__
 venv
 data
 .data
-*.pt
 runs
+*.pt
+*.swp
 
 aio_project/imgs
 rl_env/baselines
