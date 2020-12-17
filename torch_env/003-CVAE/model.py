@@ -156,3 +156,8 @@ class Decoder(nn.Module):
         # x.shape = (batch_size, layer_size[-1])
 
         return x
+
+
+if __name__ == "__main__":
+    vae = VAE([784, 256], 10, [256, 784], conditional=True, num_labels=10)
+    print(vae)
