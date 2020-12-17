@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    BATCH_SIZE = 128
+    BATCH_SIZE = 300
 
     iters = BucketIterator.splits((train_data, valid_data, test_data),
                                   batch_size=BATCH_SIZE,
@@ -260,14 +260,15 @@ if __name__ == "__main__":
             print(f'\t Best Loss: {best_valid_loss:.3f}')
             print(f'\t Best PPL: {math.exp(best_valid_loss):7.3f}')
 
-            writer.add_scalars('Loss', {'train loss': train_loss,
-                                        'valid loss': valid_loss,
-                                        'best loss': best_valid_loss}, epoch)
+            writer.add_scalars('Loss',
+                               {'train loss': train_loss,
+                                'valid loss': valid_loss,
+                                'best loss': best_valid_loss}, epoch)
             writer.add_scalars('PPL Loss',
                                {'train loss': math.exp(train_loss),
                                 'valid loss': math.exp(valid_loss),
                                 'best loss': math.exp(best_valid_loss)}, epoch)
-        writer.flush()
+            writer.flush()
         writer.close()
 
     elif mode == 'test':
