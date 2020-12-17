@@ -45,7 +45,7 @@ def main(args):
     data_loader = DataLoader(dataset=dataset,
                              batch_size=args.batch_size,
                              shuffle=True,
-                             num_workers=4)
+                             num_workers=args.num_workers)
 
     # x, y = next(iter(data_loader))
     # print(x.shape, y.shape)
@@ -108,12 +108,13 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=256)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--en_layer_size", type=list, default=[784, 256])
     parser.add_argument("--de_layer_size", type=list, default=[256, 784])
-    parser.add_argument("--latent_size", type=int, default=2)
+    parser.add_argument("--latent_size", type=int, default=10)
     parser.add_argument("--print_every", type=int, default=100)
     parser.add_argument("--fit_root", type=str, default='figs')
     parser.add_argument("--conditional", action='store_true')
