@@ -4,6 +4,7 @@ import time
 import argparse
 from collections import defaultdict
 
+import matplotlib.pyplot as plt
 import torch
 from torch import nn, optim
 from torchvision import transforms
@@ -109,6 +110,25 @@ def main(args):
               loss.item(),
               m, s,
               total_m, total_s))
+
+        if args.conditional:
+            c = torch.arange(10, dtype=torch.long).unsqueeze(1).to(device)
+            z = torch.randn([c.size(0), args.latent_size]).to(device)
+            x = vae(z, c=c)
+        else:
+            z = torch.randn([10, args.latent_size]).to(device)
+            x = vae(z)
+
+        plt.figure(figsize=(5, 10))
+        for p in range(10):
+            plt.subplot(5, 2, p+1)
+            if args.conditional:
+                plt.text(0, 0, f"c={p}", color='black',
+                         backgroundcolor='white', fontsize=8)
+            plt.imshow(x[p].view(28, 28).cpu().data.numpy())
+            plt.axis('off')
+
+        plt.show()
 
 
 if __name__ == "__main__":
