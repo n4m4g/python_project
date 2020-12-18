@@ -32,31 +32,44 @@ class VAE(nn.Module):
                                conditional, num_labels)
 
     def forward(self, x, c=None):
+
         # x.shape = (batch_size, 1, 28, 28)
         # c.shape = (batch_size)
 
         if x.dim() > 2:
             x = x.view(-1, 28*28)
 
-        m, s = self.encoder(x, c)
-        # m.shape = (batch_size, latent_size)
-        # s.shape = (batch_size, latent_size)
+        mean, log_var = self.encoder(x, c)
+        # mean.shape = (batch_size, latent_size)
+        # log_var.shape = (batch_size, latent_size)
 
-        z = self.reparameterize(m, s)
+        z = self.reparameterize(mean, log_var)
         # z.shape = (batch_size, latent_size)
 
         recon_x = self.decoder(z, c)
+        # recon_x = (batch_size, layer_size[-1])
 
-        return recon_x, m, s, z
+        return recon_x, mean, log_var, z
 
-    def reparameterize(self, m, s):
+    @staticmethod
+    def reparameterize(mean, log_var):
 
-        std = torch.exp(0.5 * s)
+        # mean.shape = (batch_size, latent_size)
+        # log_var.shape = (batch_size, latent_size)
+
+        std = torch.exp(0.5 * log_var)
+        # std.shape = (batch_size, latent_size)
         eps = torch.randn_like(std)
+        # eps.shape = (batch_size, latent_size)
+        z = mean + eps * std
+        # z.shape = (batch_size, latent_size)
 
-        return m + eps * std
+        return z
 
     def inference(self, z, c=None):
+
+        # z.shape = (batch_size, latent_size)
+        # c.shape = (batch_size)
 
         recon_x = self.decoder(z, c)
 
@@ -87,8 +100,8 @@ class Encoder(nn.Module):
             module = nn.ReLU()
             self.MLP.add_module(name=name, module=module)
 
-        self.mu = nn.Linear(layer_size[-1], latent_size)
-        self.sigma = nn.Linear(layer_size[-1], latent_size)
+        self.fc_mean = nn.Linear(layer_size[-1], latent_size)
+        self.fc_log_var = nn.Linear(layer_size[-1], latent_size)
 
     def forward(self, x, c=None):
         # x.shape = (batch_size, 28*28)
@@ -103,12 +116,12 @@ class Encoder(nn.Module):
         x = self.MLP(x)
         # x.shape = (batch_size, layer_size[-1])
 
-        m = self.mu(x)
-        s = self.sigma(x)
+        mean = self.fc_mean(x)
+        log_var = self.fc_log_var(x)
         # m.shape = (batch_size, latent_size)
         # s.shape = (batch_size, latent_size)
 
-        return m, s
+        return mean, log_var
 
 
 class Decoder(nn.Module):

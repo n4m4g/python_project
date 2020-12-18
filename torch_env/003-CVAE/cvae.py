@@ -20,17 +20,23 @@ def epoch_time(start_t, end_t):
     return m, s
 
 
-def loss_fn(recon_x, x, m, s):
+def loss_fn(recon_x, x, mean, log_var):
+    # recon_x.shape = (batch_size, 28*28)
+    # x.shape = (batch_size, 1, 28, 28)
+    # m.shape = (batch_size, latent_size)
+    # s.shape = (batch_size, latent_size)
     BSE = nn.functional.binary_cross_entropy(recon_x.view(-1, 28*28),
                                              x.view(-1, 28*28),
                                              reduction='sum')
-    KLD = -0.5 * torch.sum(1 + s - m.pow(2) - s.exp())
+    # https://stackoverflow.com/questions/61597340/how-is-kl-divergence-in-pytorch-code-related-to-the-formula
+    KLD = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
 
     return (BSE + KLD) / x.size(0)
 
 
 def main(args):
     torch.manual_seed(args.seed)
+
     device = None
     if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
@@ -72,9 +78,9 @@ def main(args):
             # y.shape = (batch_size)
 
             if args.conditional:
-                recon_x, m, s, z = vae(x, y)
+                recon_x, mean, log_var, z = vae(x, y)
             else:
-                recon_x, m, s, z = vae(x)
+                recon_x, mean, log_var, z = vae(x)
             # recon_x.shape = (batch_size, layer_size[-1])
             # m.shape = (batch_size, latent_size)
             # s.shape = (batch_size, latent_size)
@@ -86,7 +92,7 @@ def main(args):
             #     tracker_epoch[idx]['y'] = z[i, 1].item()
             #     tracker_epoch[idx]['label'] = yi.item()
 
-            loss = loss_fn(recon_x, x, m, s)
+            loss = loss_fn(recon_x, x, mean, log_var)
 
             optimizer.zero_grad()
             loss.backward()
