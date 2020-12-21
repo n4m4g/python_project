@@ -32,27 +32,36 @@ def generate_pair(text):
 
 
 def main():
-    hiragana_pair = generate_pair(HIRAGANA)
+    pairs = generate_pair(KATAKANA)
     # hiragana : dict
 
     wrong_dict = defaultdict(lambda: 0)
 
     while True:
-        k, v = random.choice(list(hiragana_pair.items()))
-        ans = input(f"{k}: ")
+        ks = list(pairs.keys())
+        random.shuffle(ks)
+        vs = [pairs[k] for k in ks]
+
+        for k, v in zip(ks, vs):
+            ans = input(f"{k}: ")
+
+            if ans == 'q':
+                break
+
+            if ans == v:
+                print("Correct")
+            else:
+                print(f"Wrong, {k}: {v}")
+                wrong_dict[k] += 1
 
         if ans == 'q':
             break
 
-        if ans == v:
-            print("Correct")
-        else:
-            print(f"Wrong, {k}: {v}")
-            wrong_dict[k] += 1
-
     print("\n=== Wrong ===")
-    for k, v in wrong_dict.items():
-        print(f"{k}: {hiragana_pair[k]} | x{v}")
+    for k, v in sorted(wrong_dict.items(),
+                       key=lambda item: item[1],
+                       reverse=True):
+        print(f"{k}: {pairs[k]} | x{v}")
 
 
 if __name__ == "__main__":
