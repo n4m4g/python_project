@@ -49,6 +49,7 @@ def main(args):
                     train=True,
                     transform=transforms.ToTensor(),
                     download=True)
+
     data_loader = DataLoader(dataset=dataset,
                              batch_size=args.batch_size,
                              shuffle=True,
@@ -111,36 +112,40 @@ def main(args):
               m, s,
               total_m, total_s))
 
-        if args.conditional:
-            c = torch.arange(10, dtype=torch.long).unsqueeze(1).to(device)
-            z = torch.randn([c.size(0), args.latent_size]).to(device)
-            x = vae(z, c=c)
-        else:
-            z = torch.randn([10, args.latent_size]).to(device)
-            x = vae(z)
-
-        plt.figure(figsize=(5, 10))
-        for p in range(10):
-            plt.subplot(5, 2, p+1)
+        if (epoch+1) % 20 == 0:
             if args.conditional:
-                plt.text(0, 0, f"c={p}", color='black',
-                         backgroundcolor='white', fontsize=8)
-            plt.imshow(x[p].view(28, 28).cpu().data.numpy())
-            plt.axis('off')
+                c = torch.arange(10, dtype=torch.long).unsqueeze(1).to(device)
+                z = torch.randn([c.size(0), args.latent_size]).to(device)
+                x = vae.inference(z, c=c)
+            else:
+                z = torch.randn([10, args.latent_size]).to(device)
+                x = vae.inference(z)
 
-        plt.show()
+            plt.figure(figsize=(5, 10))
+            for p in range(10):
+                plt.subplot(5, 2, p+1)
+                if args.conditional:
+                    plt.text(0, 0, f"c={p}", color='black',
+                             backgroundcolor='white', fontsize=8)
+                plt.imshow(x[p].view(28, 28).cpu().data.numpy())
+                plt.axis('off')
+
+                img_name = f'results/cvae_{epoch+1}.png'
+                plt.savefig(img_name)
+
+            # plt.show()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch_size", type=int, default=256)
-    parser.add_argument("--num_workers", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--en_layer_size", type=list, default=[784, 256])
     parser.add_argument("--de_layer_size", type=list, default=[256, 784])
-    parser.add_argument("--latent_size", type=int, default=10)
+    parser.add_argument("--latent_size", type=int, default=15)
     parser.add_argument("--print_every", type=int, default=100)
     parser.add_argument("--fit_root", type=str, default='figs')
     parser.add_argument("--conditional", action='store_true')

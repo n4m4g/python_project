@@ -10,8 +10,11 @@ def idx2onehot(idx, n):
         idx = idx.unsqueeze(dim=1)
 
     onehot = torch.zeros((idx.size(0), n), device=idx.device)
-    # scatter_(dim, index, src, reduce=None)
-    # self[i][index[i][j]] = src[i][j]  # if dim == 1
+
+    """
+    scatter_(dim, index, src, reduce=None)
+        self[i][index[i][j]] = src[i][j]  # if dim == 1
+    """
     onehot.scatter_(1, idx, 1)
 
     return onehot
@@ -51,8 +54,7 @@ class VAE(nn.Module):
 
         return recon_x, mean, log_var, z
 
-    @staticmethod
-    def reparameterize(mean, log_var):
+    def reparameterize(self, mean, log_var):
 
         # mean.shape = (batch_size, latent_size)
         # log_var.shape = (batch_size, latent_size)
@@ -138,6 +140,7 @@ class Decoder(nn.Module):
         else:
             in_size = latent_size
 
+        self.num_labels = num_labels
         layer_size = [in_size] + layer_size
 
         for idx in range(len(layer_size[:-1])):
