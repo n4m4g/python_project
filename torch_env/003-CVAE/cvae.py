@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import time
 import argparse
 from collections import defaultdict
@@ -130,7 +131,7 @@ def main(args):
                 plt.imshow(x[p].view(28, 28).cpu().data.numpy())
                 plt.axis('off')
 
-                img_name = f'results/cvae_{epoch+1}.png'
+                img_name = f'{args.fit_root}/cvae_{epoch+1}.png'
                 plt.savefig(img_name)
 
             # plt.show()
@@ -147,7 +148,7 @@ if __name__ == "__main__":
     parser.add_argument("--de_layer_size", type=list, default=[256, 784])
     parser.add_argument("--latent_size", type=int, default=15)
     parser.add_argument("--print_every", type=int, default=100)
-    parser.add_argument("--fit_root", type=str, default='figs')
+    parser.add_argument("--fit_root", type=str, default='results')
     parser.add_argument("--conditional", action='store_true')
 
     args = parser.parse_args()
