@@ -31,11 +31,21 @@ def generate_pair(text):
     return pairs
 
 
+def show_result(wrong_dict, pairs):
+    print("\n=== Wrong ===")
+    for k, v in sorted(wrong_dict.items(),
+                       key=lambda item: item[1],
+                       reverse=True):
+        print(f"{k}: {pairs[k]} | x{v}")
+    print()
+
+
 def main():
-    pairs = generate_pair(KATAKANA)
+    pairs = generate_pair(HIRAGANA+KATAKANA)
     # hiragana : dict
 
     wrong_dict = defaultdict(lambda: 0)
+    total_dict = defaultdict(lambda: 0)
 
     while True:
         ks = list(pairs.keys())
@@ -46,22 +56,19 @@ def main():
             ans = input(f"{k}: ")
 
             if ans == 'q':
+                show_result(total_dict, pairs)
                 break
-
-            if ans == v:
+            elif ans == v:
                 print("Correct")
             else:
                 print(f"Wrong, {k}: {v}")
                 wrong_dict[k] += 1
+                total_dict[k] += 1
 
         if ans == 'q':
             break
 
-    print("\n=== Wrong ===")
-    for k, v in sorted(wrong_dict.items(),
-                       key=lambda item: item[1],
-                       reverse=True):
-        print(f"{k}: {pairs[k]} | x{v}")
+        show_result(wrong_dict, pairs)
 
 
 if __name__ == "__main__":
