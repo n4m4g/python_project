@@ -20,6 +20,10 @@ from pynvml import nvmlSystemGetProcessName
 from pynvml import nvmlShutdown
 
 
+def toMiB(value):
+    return int(value/1024/1024)
+
+
 if __name__ == "__main__":
     nvmlInit()
 
@@ -47,9 +51,9 @@ if __name__ == "__main__":
 
         # memory
         info = nvmlDeviceGetMemoryInfo(handle)
-        mem_used = int(info.used/1024/1024)
-        mem_free = int(info.free/1024/1024)
-        mem_total = int(info.total/1024/1024)
+        mem_used = toMiB(info.used)
+        mem_free = toMiB(info.free)
+        mem_total = toMiB(info.total)
         print("Memory: \t{}MiB / {}MiB / {}MiB".format(mem_used,
                                                        mem_free,
                                                        mem_total))
@@ -74,14 +78,17 @@ if __name__ == "__main__":
 
         # processes
         compute_processes = nvmlDeviceGetComputeRunningProcesses(handle)
-        graphic_prcessess = nvmlDeviceGetGraphicsRunningProcesses(handle)
+        graphic_proessess = nvmlDeviceGetGraphicsRunningProcesses(handle)
+        graphic_proessess = sorted(graphic_proessess,
+                                   key=lambda x: toMiB(x.usedGpuMemory),
+                                   reverse=True)
         print("\n=== Processes ===")
-        for p in graphic_prcessess:
+        for p in graphic_proessess:
             p_pid = p.pid
+            p_mem = toMiB(p.usedGpuMemory)
             p_name = nvmlSystemGetProcessName(p_pid).decode()
             p_name = p_name.split('\\')
-            p_name = [name.split(' ')[0] for name in p_name]
-            print(p_name[0])
-            # print(type(p_name))
+            p_name = [name.split(' ')[0].split('/')[-1] for name in p_name]
+            print("{}: [{}MiB]".format(p_name[0], p_mem))
 
     nvmlShutdown()
