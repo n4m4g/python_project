@@ -78,17 +78,16 @@ if __name__ == "__main__":
 
         # processes
         compute_processes = nvmlDeviceGetComputeRunningProcesses(handle)
-        graphic_proessess = nvmlDeviceGetGraphicsRunningProcesses(handle)
-        graphic_proessess = sorted(graphic_proessess,
+        graphic_processes = nvmlDeviceGetGraphicsRunningProcesses(handle)
+        graphic_processes = sorted(graphic_processes,
                                    key=lambda x: toMiB(x.usedGpuMemory),
                                    reverse=True)
         print("\n=== Processes ===")
-        for p in graphic_proessess:
+        for p in graphic_processes:
             p_pid = p.pid
-            p_mem = toMiB(p.usedGpuMemory)
             p_name = nvmlSystemGetProcessName(p_pid).decode()
-            p_name = p_name.split('\\')
-            p_name = [name.split(' ')[0].split('/')[-1] for name in p_name]
-            print("{}: [{}MiB]".format(p_name[0], p_mem))
+            p_name = p_name.split(' ')[0].split('/')[-1]
+            p_mem = toMiB(p.usedGpuMemory)
+            print("{}: [{}MiB]".format(p_name, p_mem))
 
     nvmlShutdown()
