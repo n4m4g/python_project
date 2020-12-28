@@ -24,6 +24,12 @@ def toMiB(value):
     return int(value/1024/1024)
 
 
+def getPercentageBar(percentage):
+    percentage = 1 if percentage < 5 else percentage // 5
+    bar = "[{:20}] {}%".format('='*percentage, percentage)
+    return bar
+
+
 if __name__ == "__main__":
     nvmlInit()
 
@@ -39,25 +45,19 @@ if __name__ == "__main__":
         driver_version = nvmlSystemGetDriverVersion().decode()
         print("\tDriver Version: {}".format(driver_version))
 
+        # utilize
+        utilization = nvmlDeviceGetUtilizationRates(handle)
+        print("\tGPU Util \t{}".format(getPercentageBar(utilization.gpu)))
+        print("\tMEM Util: \t{}".format(getPercentageBar(utilization.memory)))
+
+        # decoder usage
+        utilization, samplingPeriodUs = nvmlDeviceGetDecoderUtilization(handle)
+        print("\tDecoder Util: \t{}".format(getPercentageBar(utilization)))
+
         # clock
         clk = nvmlDeviceGetClockInfo(handle, 0)
         max_clk = nvmlDeviceGetMaxClockInfo(handle, 0)
         print("\tGPU Clock: \t{}MHz / {}MHz".format(clk, max_clk))
-
-        # utilize
-        utilization = nvmlDeviceGetUtilizationRates(handle)
-        print("\tGPU Util: \t{}%".format(utilization.gpu))
-        print("\tMEM Util: \t{}%".format(utilization.memory))
-
-        # power state
-        power_used = nvmlDeviceGetPowerUsage(handle)/1000
-        power_limit = nvmlDeviceGetPowerManagementDefaultLimit(handle)/1000
-        print("\tPower Util: \t{}W / {}W".format(int(power_used),
-                                                 int(power_limit)))
-
-        # decoder usage
-        utilization, samplingPeriodUs = nvmlDeviceGetDecoderUtilization(handle)
-        print("\tDecoder Util: \t{}%".format(utilization))
 
         # memory
         info = nvmlDeviceGetMemoryInfo(handle)
@@ -67,6 +67,12 @@ if __name__ == "__main__":
         print("\tMemory: \t{}MiB / {}MiB / {}MiB".format(mem_used,
                                                          mem_free,
                                                          mem_total))
+
+        # power state
+        power_used = nvmlDeviceGetPowerUsage(handle)/1000
+        power_limit = nvmlDeviceGetPowerManagementDefaultLimit(handle)/1000
+        print("\tPower Util: \t{}W / {}W".format(int(power_used),
+                                                 int(power_limit)))
 
         # fan speed
         fan_speed = nvmlDeviceGetFanSpeed(handle)
