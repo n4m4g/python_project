@@ -25,8 +25,8 @@ def toMiB(value):
 
 
 def getPercentageBar(percentage):
-    percentage = 1 if percentage < 5 else percentage // 5
-    bar = "[{:20}] {}%".format('='*percentage, percentage)
+    num_bar = 1 if percentage < 5 else percentage // 5
+    bar = "[{:20}] {}%".format('='*(num_bar), percentage)
     return bar
 
 
