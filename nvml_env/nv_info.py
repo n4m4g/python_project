@@ -49,11 +49,9 @@ if __name__ == "__main__":
 
         # device name
         device_name = nvmlDeviceGetName(handle).decode()
-        print("[{}] {}".format(i, device_name))
-
-        # driver version
         driver_version = nvmlSystemGetDriverVersion().decode()
-        print("\tDriver Version: {}".format(driver_version))
+        print("[{}] {}, Driver Version: {}\n".format(i, device_name,
+                                                     driver_version))
 
         # utilize
         utilization = nvmlDeviceGetUtilizationRates(handle)
@@ -62,18 +60,18 @@ if __name__ == "__main__":
         mem_used = toMiB(info.used)
         # mem_free = toMiB(info.free)
         mem_total = toMiB(info.total)
-        print("\tGPU Util: \t{}".format(getBar(utilization.gpu)))
-        print("\tMEM Util: \t{}".format(getBar(utilization.memory,
-                                               [mem_used, mem_total],
-                                               'MiB')))
+        print("GPU Util: \t{}".format(getBar(utilization.gpu)))
+        print("MEM Util: \t{}".format(getBar(utilization.memory,
+                                             [mem_used, mem_total],
+                                             'MiB')))
 
         # decoder usage
         utilization, samplingPeriodUs = nvmlDeviceGetDecoderUtilization(handle)
-        print("\tDecoder Util: \t{}".format(getBar(utilization)))
+        print("Decoder Util: \t{}".format(getBar(utilization)))
 
         # fan speed
         fan_speed = nvmlDeviceGetFanSpeed(handle)
-        print("\tFan Speed: \t{}".format(getBar(fan_speed)))
+        print("Fan Speed: \t{}".format(getBar(fan_speed)))
 
         # power state
         power_used = nvmlDeviceGetPowerUsage(handle)/1000
@@ -81,18 +79,18 @@ if __name__ == "__main__":
         power_used = int(power_used)
         power_limit = int(power_limit)
         power_rate = int(power_used/power_limit)
-        print("\tPower Util: \t{}".format(getBar(power_rate,
-                                                 [power_used, power_limit],
-                                                 'W')))
+        print("Power Util: \t{}".format(getBar(power_rate,
+                                               [power_used, power_limit],
+                                               'W')))
 
         # clock
         clk = nvmlDeviceGetClockInfo(handle, 0)
         max_clk = nvmlDeviceGetMaxClockInfo(handle, 0)
-        print("\tGPU Clock: \t{}MHz / {}MHz".format(clk, max_clk))
+        print("GPU Clock: \t{}MHz / {}MHz".format(clk, max_clk))
 
         # temperature
         temp = nvmlDeviceGetTemperature(handle, 0)
-        print("\tTemperature: \t{}C".format(temp))
+        print("Temperature: \t{}C".format(temp))
 
         # processes
         compute_processes = nvmlDeviceGetComputeRunningProcesses(handle)
@@ -100,12 +98,12 @@ if __name__ == "__main__":
         graphic_processes = sorted(graphic_processes,
                                    key=lambda x: toMiB(x.usedGpuMemory),
                                    reverse=True)
-        print("\n\t=== Processes ===")
+        print("\n=== Processes ===")
         for p in graphic_processes:
             p_pid = p.pid
             p_name = nvmlSystemGetProcessName(p_pid).decode()
             p_name = p_name.split(' ')[0].split('/')[-1]
             p_mem = toMiB(p.usedGpuMemory)
-            print("\t{}: [{}MiB]".format(p_name, p_mem))
+            print("{}: [{}MiB]".format(p_name, p_mem))
 
     nvmlShutdown()
