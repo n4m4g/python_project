@@ -9,6 +9,7 @@ class Borg:
 
 class YourBorg(Borg):
     def __init__(self, state=None):
+        # Share __dict__ between all instances
         super().__init__()
         if state:
             self.state = state
