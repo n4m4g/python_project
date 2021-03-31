@@ -3,6 +3,7 @@ import numpy as np
 import torch as T
 from torch import nn, optim
 from torch.distributions.categorical import Categorical
+# from torchsnooper import snoop
 
 
 class PPOMemory:
@@ -16,20 +17,20 @@ class PPOMemory:
         self.dones = []
         self.batch_size = batch_size
 
-    def generate_batches(self):
+    def generate_batch(self):
         n_states = len(self.states)
         batch_start = np.arange(0, n_states, self.batch_size)
         indices = np.arange(n_states)
         np.random.shuffle(indices)
-        batches = [indices[i:i+self.batch_size] for i in batch_start]
+        batch = [indices[i:i+self.batch_size] for i in batch_start]
 
         return (np.array(self.states),
+                np.array(self.actions),
                 np.array(self.probs),
                 np.array(self.vals),
-                np.array(self.actions),
                 np.array(self.rewards),
                 np.array(self.dones),
-                batches)
+                batch)
 
     def store(self, state, action, prob, val, reward, done):
         self.states.append(state)
@@ -142,32 +143,36 @@ class Agent:
 
         return action, prob, value
 
+    # @snoop()
     def learn(self):
         for _ in range(self.n_epochs):
             b_states, b_actions, b_old_probs, b_values, \
-                    b_rewards, b_dones, b_batches = \
-                    self.memory.generate_batches()
+                    b_rewards, b_dones, b_batch = \
+                    self.memory.generate_batch()
             advantage = np.zeros(len(b_rewards), dtype=np.float32)
 
             for t in range(len(b_rewards)-1):
                 discount = 1
                 a_t = 0
                 for k in range(t, len(b_rewards)-1):
-                    delta = b_rewards[k]+self.gamma*b_values[k+1]-b_values[k]
+                    delta = b_rewards[k] + \
+                            self.gamma*b_values[k+1]*(1-int(b_dones[k])) - \
+                            b_values[k]
                     a_t += discount*delta
-                    discount = self.gamma*self.gae_lambda
+                    discount *= self.gamma*self.gae_lambda
                 advantage[t] = a_t
-            advantage = T.Tensor(advantage).to(self.device)
+            advantage = T.Tensor(advantage).to(self.actor.device)
 
-            b_values = T.tensor(b_values).to(self.device)
+            b_values = T.Tensor(b_values).to(self.actor.device)
 
-            for batches in b_batches:
-                states = T.Tensor(b_states[batches]).to(self.actor.device)
-                old_probs = T.Tensor(b_old_probs[batches]).to(self.actor.device)
-                actions = T.Tensor(b_actions[batches]).to(self.actor.device)
+            for batch in b_batch:
+                states = T.Tensor(b_states[batch])
+                old_probs = T.Tensor(b_old_probs[batch])
+                actions = T.Tensor(b_actions[batch])
 
                 states = states.to(self.actor.device)
-                old_probs = 
+                old_probs = old_probs.to(self.actor.device)
+                actions = actions.to(self.actor.device)
 
                 dist = self.actor(states)
                 critic_value = self.critic(states).squeeze()
@@ -175,6 +180,20 @@ class Agent:
                 new_probs = dist.log_prob(actions)
                 prob_ratio = new_probs.exp() / old_probs.exp()
 
-                weighted_prob = advantage[batches]*prob_ratio
-                weighted_clipped_prob = T.clamp(prob_ratio, 1-self.clip, 1+self.clip)*prob_ratio
+                surr1 = advantage[batch]*prob_ratio
+                surr2 = T.clamp(prob_ratio, 1-self.clip, 1+self.clip)
+                surr2 *= advantage[batch]
 
+                actor_loss = -T.min(surr1, surr2).mean()
+
+                returns = advantage[batch] + b_values[batch]
+                critic_loss = nn.MSELoss()(returns, critic_value)
+
+                total_loss = actor_loss + 0.5*critic_loss
+                self.actor.optimizer.zero_grad()
+                self.critic.optimizer.zero_grad()
+                total_loss.backward()
+                self.actor.optimizer.step()
+                self.critic.optimizer.step()
+
+        self.memory.clear()
