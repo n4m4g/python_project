@@ -16,7 +16,7 @@ class MNISTModel(pl.LightningModule):
         self.data_dir = data_dir
         self.h_size = h_size
         self.lr = lr
-        self.b_size = 32
+        self.b_size = 128
         self.n_workers = 8
 
         self.num_classes = 10
@@ -41,6 +41,10 @@ class MNISTModel(pl.LightningModule):
     def forward(self, x):
         return self.model(x)
 
+    ######
+    # Step
+    ######
+
     # handle forward and calculate loss
     def training_step(self, batch, batch_nb):
         x, y = batch
@@ -61,10 +65,18 @@ class MNISTModel(pl.LightningModule):
     def test_step(self, batch, batch_nb):
         return self.validation_step(batch, batch_nb)
 
+    ###########
+    # Optimizer
+    ###########
+
     # create optimizer
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
+
+    ####################
+    # Data Related Hooks
+    ####################
 
     def prepare_data(self):
         MNIST(self.data_dir, train=True, download=True)
@@ -104,7 +116,7 @@ model = MNISTModel()
 
 # create lightning trainer
 # gpu count, epochs and something else
-trainer = pl.Trainer(gpus=0,
+trainer = pl.Trainer(gpus=1,
                      max_epochs=10,
                      progress_bar_refresh_rate=20)
 
