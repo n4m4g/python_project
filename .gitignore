@@ -11,3 +11,6 @@ aio_project/imgs
 rl_env/baselines
 torch_env/003-CVAE/results
 practice
+lightning_env/01-mnist-hello-world/MNIST/
+lightning_env/01-mnist-hello-world/ckpt/
+lightning_env/01-mnist-hello-world/lightning_logs/
