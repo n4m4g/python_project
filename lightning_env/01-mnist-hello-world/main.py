@@ -38,6 +38,7 @@ class MNISTModel(pl.LightningModule):
         )
 
     # just like the model forward
+    # return model output
     def forward(self, x):
         return self.model(x)
 
@@ -45,12 +46,13 @@ class MNISTModel(pl.LightningModule):
     # Step
     ######
 
-    # handle forward and calculate loss
+    # handle training and return loss
     def training_step(self, batch, batch_nb):
         x, y = batch
         loss = F.cross_entropy(self(x), y)
         return loss
 
+    # handle validation and return loss
     def validation_step(self, batch, batch_nb):
         x, y = batch
         logits = self(x)
@@ -62,6 +64,7 @@ class MNISTModel(pl.LightningModule):
         self.log('val_acc', acc, prog_bar=True)
         return loss
 
+    # handle testing and return loss
     def test_step(self, batch, batch_nb):
         return self.validation_step(batch, batch_nb)
 
@@ -116,11 +119,10 @@ model = MNISTModel()
 
 # create lightning trainer
 # gpu count, epochs and something else
-trainer = pl.Trainer(gpus=1,
-                     max_epochs=10,
-                     progress_bar_refresh_rate=20)
+trainer = pl.Trainer(gpus=1, max_epochs=3)
 
 # training
 trainer.fit(model)
 
+# testing
 trainer.test()
