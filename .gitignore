@@ -7,6 +7,7 @@ runs
 *.pt
 *.swp
 
+foo_env/
 aio_project/imgs
 rl_env/baselines
 torch_env/003-CVAE/results
