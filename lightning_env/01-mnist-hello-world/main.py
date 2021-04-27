@@ -1,3 +1,4 @@
+import glob
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
@@ -6,6 +7,7 @@ from torchvision.datasets import MNIST
 from torchvision import transforms
 import pytorch_lightning as pl
 from pytorch_lightning.metrics.functional import accuracy
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
 class MNISTModel(pl.LightningModule):
@@ -116,13 +118,27 @@ class MNISTModel(pl.LightningModule):
 
 
 model = MNISTModel()
+ckpt_path = sorted(glob.glob('ckpt/lightning_logs/version_*'))[-1]
+ckpt_path += '/checkpoints/*.ckpt'
+ckpt_path = glob.glob(ckpt_path)[0]
+print('... load ckpt ...')
+print(f'\t{ckpt_path}')
+model = model.load_from_checkpoint(ckpt_path)
+
+callbacks = ModelCheckpoint(monitor='val_loss')
 
 # create lightning trainer
 # gpu count, epochs and something else
-trainer = pl.Trainer(gpus=1, max_epochs=3)
+trainer = pl.Trainer(gpus=1,
+                     max_epochs=3,
+                     default_root_dir='ckpt/',
+                     callbacks=[callbacks])
 
 # training
 trainer.fit(model)
+
+print('... best ckpt ...')
+print(f'\t{callbacks.best_model_path}')
 
 # testing
 trainer.test()
