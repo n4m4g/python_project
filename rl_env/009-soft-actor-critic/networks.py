@@ -1,11 +1,12 @@
 import os
 import torch as T
 from torch import nn, optim
-from torch.nn import functional as F
+# from torch.nn import functional as F
 from torch.distributions.normal import Normal
 # import numpy as np
 
 
+# tell the agent how valuable it thinks the chosen ations were
 class CriticNetwork(nn.Module):
     def __init__(self, lr, input_dims, n_actions,
                  fc1_dim=256, fc2_dim=256,
@@ -14,10 +15,10 @@ class CriticNetwork(nn.Module):
         self.ckpt_f = os.path.join(ckpt_dir, name+'_sac')
 
         self.net = nn.Sequential(
-            nn.Linear(input_dims[0]+n_actions, fc1_dim),
-            F.relu(),
+            nn.Linear(input_dims+n_actions, fc1_dim),
+            nn.ReLU(),
             nn.Linear(fc1_dim, fc2_dim),
-            F.relu(),
+            nn.ReLU(),
             nn.Linear(fc2_dim, 1)
         )
 
@@ -38,18 +39,19 @@ class CriticNetwork(nn.Module):
         self.load_state_dict(T.load(self.ckpt_f))
 
 
+# inform the agent how valuable each state is
 class ValueNetwork(nn.Module):
-    def __init__(self, lr, input_dims, n_actions,
+    def __init__(self, lr, input_dims,
                  fc1_dim=256, fc2_dim=256,
                  name='value', ckpt_dir='ckpt/sac'):
         super(ValueNetwork, self).__init__()
         self.ckpt_f = os.path.join(ckpt_dir, name+'_sac')
 
         self.net = nn.Sequential(
-            nn.Linear(input_dims[0], fc1_dim),
-            F.relu(),
+            nn.Linear(input_dims, fc1_dim),
+            nn.ReLU(),
             nn.Linear(fc1_dim, fc2_dim),
-            F.relu(),
+            nn.ReLU(),
             nn.Linear(fc2_dim, 1)
         )
 
@@ -69,18 +71,20 @@ class ValueNetwork(nn.Module):
         self.load_state_dict(T.load(self.ckpt_f))
 
 
+# use ideas from double Q learning, like
+# taking the minimum of estimation from two critics
 class ActorNetwork(nn.Module):
-    def __init__(self, lr, input_dims, max_action, n_actions,
+    def __init__(self, lr, input_dims, n_actions, max_action,
                  fc1_dim=256, fc2_dim=256,
                  name='actor', ckpt_dir='ckpt/sac'):
         super(ActorNetwork, self).__init__()
         self.ckpt_f = os.path.join(ckpt_dir, name+'_sac')
 
         self.net = nn.Sequential(
-            nn.Linear(*input_dims, fc1_dim),
-            F.relu(),
+            nn.Linear(input_dims, fc1_dim),
+            nn.ReLU(),
             nn.Linear(fc1_dim, fc2_dim),
-            F.relu()
+            nn.ReLU()
         )
         self.mu = nn.Linear(fc2_dim, n_actions)
         self.sigma = nn.Linear(fc2_dim, n_actions)

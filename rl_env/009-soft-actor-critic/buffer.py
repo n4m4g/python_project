@@ -9,8 +9,8 @@ class ReplayBuffer:
         self.mem_ptr = 0
 
         # define memory contents
-        self.s_mem = np.zeros((max_size, *input_shape))
-        self.ns_mem = np.zeros((max_size, *input_shape))
+        self.s_mem = np.zeros((max_size, input_shape))
+        self.ns_mem = np.zeros((max_size, input_shape))
         self.a_mem = np.zeros((max_size, n_actions))
         self.r_mem = np.zeros(max_size)
         self.t_mem = np.zeros(max_size, dtype=np.bool)
